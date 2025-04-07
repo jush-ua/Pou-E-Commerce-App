@@ -10,13 +10,18 @@ class ProductDetailsPage extends StatelessWidget {
         children: [
           // App Bar
           Container(
-            padding: const EdgeInsets.only(top: 40, left: 16, right: 16, bottom: 8),
-            color: Color(0xFFD88144),
+            padding: const EdgeInsets.only(
+              top: 40,
+              left: 16,
+              right: 16,
+              bottom: 8,
+            ),
+            color: const Color(0xFFD88144),
             child: Row(
               children: [
-                Icon(Icons.cloud, color: Colors.white),
-                SizedBox(width: 8),
-                Text(
+                const Icon(Icons.cloud, color: Colors.white),
+                const SizedBox(width: 8),
+                const Text(
                   'pou',
                   style: TextStyle(
                     color: Colors.white,
@@ -24,11 +29,11 @@ class ProductDetailsPage extends StatelessWidget {
                     fontSize: 20,
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
               ],
             ),
           ),
-          
+
           // Product Content - Scrollable
           Expanded(
             child: SingleChildScrollView(
@@ -40,11 +45,11 @@ class ProductDetailsPage extends StatelessWidget {
                     children: [
                       Container(
                         width: double.infinity,
-                        padding: EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
                         child: Container(
                           height: 280,
                           decoration: BoxDecoration(
-                            color: Color(0xFFE0E0E0),
+                            color: const Color(0xFFE0E0E0),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Center(
@@ -59,21 +64,21 @@ class ProductDetailsPage extends StatelessWidget {
                         top: 24,
                         right: 24,
                         child: Container(
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
                           child: IconButton(
-                            icon: Icon(Icons.favorite_border),
+                            icon: const Icon(Icons.favorite_border),
                             onPressed: () {},
                           ),
                         ),
                       ),
                     ],
                   ),
-                  
+
                   // Product Name
-                  Padding(
+                  const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       'Pou Bag',
@@ -83,24 +88,24 @@ class ProductDetailsPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   // Product Description
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: Text(
                       'Baby got drip drip drip drip drip drip drip (Description lng to)',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
                     ),
                   ),
-                  
+
                   // Availability with Icon
                   Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
                     child: Container(
-                      padding: EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -114,66 +119,59 @@ class ProductDetailsPage extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Text(
+                          const Text(
                             'In-stock',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          SizedBox(width: 8),
-                          Icon(Icons.check_box, color: Colors.green),
-                          Spacer(),
-                          Text(
+                          const SizedBox(width: 8),
+                          const Icon(Icons.check_box, color: Colors.green),
+                          const Spacer(),
+                          const Text(
                             'Pick up in store is available!',
-                            style: TextStyle(
-                              fontSize: 12,
-                            ),
+                            style: TextStyle(fontSize: 12),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  
+
                   // Sizes Section
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Sizes',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        SizedBox(height: 12),
+                        const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _buildSizeOption('8x10'),
-                            _buildSizeOption('10x12'),
-                            _buildSizeOption('12x14'),
-                            _buildSizeOption('14x16'),
+                            buildSizeOption('8x10'),
+                            buildSizeOption('10x12'),
+                            buildSizeOption('12x14'),
+                            buildSizeOption('14x16'),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  
+
                   // Divider
-                  Padding(
+                  const Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Divider(
-                      color: Color(0xFFEEEEEE),
-                      thickness: 1,
-                    ),
+                    child: Divider(color: Color(0xFFEEEEEE), thickness: 1),
                   ),
                 ],
               ),
             ),
           ),
-          
+
           // Bottom Navigation Bar
           Container(
             decoration: BoxDecoration(
@@ -181,24 +179,33 @@ class ProductDetailsPage extends StatelessWidget {
                 top: BorderSide(color: Colors.grey.shade300, width: 1),
               ),
             ),
-            padding: EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 IconButton(
-                  icon: Icon(Icons.home_outlined, color: Color(0xFFD88144)),
+                  icon: const Icon(
+                    Icons.home_outlined,
+                    color: Color(0xFFD88144),
+                  ),
                   onPressed: () {},
                 ),
                 IconButton(
-                  icon: Icon(Icons.shopping_cart_outlined, color: Colors.grey),
+                  icon: const Icon(
+                    Icons.shopping_cart_outlined,
+                    color: Colors.grey,
+                  ),
                   onPressed: () {},
                 ),
                 IconButton(
-                  icon: Icon(Icons.chat_bubble_outline, color: Colors.grey),
+                  icon: const Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.grey,
+                  ),
                   onPressed: () {},
                 ),
                 IconButton(
-                  icon: Icon(Icons.person_outline, color: Colors.grey),
+                  icon: const Icon(Icons.person_outline, color: Colors.grey),
                   onPressed: () {},
                 ),
               ],
@@ -208,22 +215,18 @@ class ProductDetailsPage extends StatelessWidget {
       ),
     );
   }
-  
-  Widget _buildSizeOption(String size) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        size,
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
+}
+
+// Refactored _buildSizeOption as a standalone function
+Widget buildSizeOption(String size) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.grey[200],
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(size, style: const TextStyle(fontWeight: FontWeight.w500)),
+  );
 }
 
 class ProductDetails extends StatelessWidget {
@@ -233,61 +236,50 @@ class ProductDetails extends StatelessWidget {
   final String soldCount;
 
   const ProductDetails({
-    super.key,
+    Key? key,
     required this.productName,
     required this.productPrice,
     required this.productIcon,
     required this.soldCount,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(productName),
-        backgroundColor: Color(0xFFD88144),
+        backgroundColor: const Color(0xFFD88144),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Icon(productIcon, size: 100, color: Colors.brown),
-            ),
-            SizedBox(height: 16),
+            Center(child: Icon(productIcon, size: 100, color: Colors.brown)),
+            const SizedBox(height: 16),
             Text(
               productName,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Price: $productPrice',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[700],
-              ),
+              style: const TextStyle(fontSize: 18, color: Colors.grey),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Sold: $soldCount',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFFD88144),
+                backgroundColor: const Color(0xFFD88144),
               ),
-              child: Text('Go Back'),
+              child: const Text('Go Back'),
             ),
           ],
         ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'home.dart';
+import 'base_page.dart';
 
 void main() {
   runApp(const MainApp());
@@ -11,17 +11,8 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-
-        ),
-        body: Center(
-          child: HomePage(
-            title: 'My Custom Widget',
-            description: 'This is a custom widget with tap interaction. Tap to expand/collapse!',
-          ),
-        ),
-      ),
+      debugShowCheckedModeBanner: false,
+      home: const BasePage(),
     );
   }
 }

@@ -6,14 +6,11 @@ class HomePage extends StatefulWidget {
   final String title;
   final String description;
 
-  const HomePage({
-    Key? key,
-    required this.title,
-    required this.description,
-  }) : super(key: key);
+  const HomePage({Key? key, required this.title, required this.description})
+    : super(key: key);
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
@@ -21,6 +18,14 @@ class _HomePageState extends State<HomePage> {
   late PageController _pageController; // PageController for PageView
   int _currentPage = 0; // Track the current page
   late Timer _timer; // Timer for automatic page rotation
+  int _currentIndex = 0; // Track the selected bottom navigation index
+
+  final List<Widget> _pages = [
+    HomePage(title: 'Home', description: 'Welcome to Pou!'), // Home Page
+    Center(child: Text('Cart Page')), // Placeholder for Cart Page
+    Center(child: Text('Chat Page')), // Placeholder for Chat Page
+    Center(child: Text('Profile Page')), // Placeholder for Profile Page
+  ];
 
   @override
   void initState() {
@@ -56,70 +61,33 @@ class _HomePageState extends State<HomePage> {
       home: Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(
-          child: Column(
-            children: [
-              // Custom App Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                color: Color(0xFFD88144),
-                child: Row(
-                  children: [
-                    Icon(Icons.cloud, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
-                      'pou',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Search',
-                            contentPadding: EdgeInsets.symmetric(horizontal: 15),
-                            border: InputBorder.none,
-                            suffixIcon: Icon(Icons.search),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Main Content
-              Expanded(
-                child: _isExpanded 
-                    ? _buildExpandedContent() 
-                    : _buildCollapsedContent(),
-              ),
-              
-              // Bottom Navigation
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: Colors.grey.shade300, width: 1)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(Icons.home, true),
-                    _buildNavItem(Icons.shopping_cart, false),
-                    _buildNavItem(Icons.chat_bubble_outline, false),
-                    _buildNavItem(Icons.person_outline, false),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          child: _pages[_currentIndex], // Display the selected page
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index; // Update the selected index
+            });
+          },
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: const Color(0xFFD88144),
+          unselectedItemColor: Colors.grey,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_cart),
+              label: "Cart",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline),
+              label: "Chat",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              label: "Profile",
+            ),
+          ],
         ),
       ),
     );
@@ -138,19 +106,13 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   widget.title,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 8),
                 Text(
                   widget.description,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
                 SizedBox(height: 16),
                 ElevatedButton(
@@ -187,10 +149,7 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.all(16.0),
               child: Text(
                 'Featured',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
             ),
             Container(
@@ -262,10 +221,7 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.all(16.0),
               child: Text(
                 'Best Seller',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
             ),
             GridView.count(
@@ -281,18 +237,8 @@ class _HomePageState extends State<HomePage> {
                   'P637.28',
                   '599',
                 ),
-                _buildProductCard(
-                  'Pou Mug',
-                  Icons.coffee,
-                  'P564.54',
-                  '478',
-                ),
-                _buildProductCard(
-                  'Pou Cap',
-                  Icons.face,
-                  'P399.99',
-                  '325',
-                ),
+                _buildProductCard('Pou Mug', Icons.coffee, 'P564.54', '478'),
+                _buildProductCard('Pou Cap', Icons.face, 'P399.99', '325'),
                 _buildProductCard(
                   'Pou Phone Case',
                   Icons.phone_iphone,
@@ -307,18 +253,24 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildProductCard(String name, IconData icon, String price, String soldCount) {
+  Widget _buildProductCard(
+    String name,
+    IconData icon,
+    String price,
+    String soldCount,
+  ) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ProductDetails(
-              productName: name,
-              productPrice: price,
-              productIcon: icon,
-              soldCount: soldCount,
-            ),
+            builder:
+                (context) => ProductDetails(
+                  productName: name,
+                  productPrice: price,
+                  productIcon: icon,
+                  soldCount: soldCount,
+                ),
           ),
         );
       },
@@ -337,9 +289,7 @@ class _HomePageState extends State<HomePage> {
                     topRight: Radius.circular(4),
                   ),
                 ),
-                child: Center(
-                  child: Icon(icon, size: 60, color: Colors.brown),
-                ),
+                child: Center(child: Icon(icon, size: 60, color: Colors.brown)),
               ),
             ),
             Padding(
@@ -347,27 +297,17 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  Text(name, style: TextStyle(fontWeight: FontWeight.bold)),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         price,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
                         'Sold: $soldCount',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
                   ),
@@ -383,10 +323,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildNavItem(IconData icon, bool isSelected) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10.0),
-      child: Icon(
-        icon,
-        color: isSelected ? Color(0xFFD88144) : Colors.grey,
-      ),
+      child: Icon(icon, color: isSelected ? Color(0xFFD88144) : Colors.grey),
     );
   }
 
