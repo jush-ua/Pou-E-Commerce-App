@@ -6,8 +6,7 @@ class HomePage extends StatefulWidget {
   final String title;
   final String description;
 
-  const HomePage({Key? key, required this.title, required this.description})
-    : super(key: key);
+  const HomePage({super.key, required this.title, required this.description});
 
   @override
   _HomePageState createState() => _HomePageState();
@@ -18,14 +17,6 @@ class _HomePageState extends State<HomePage> {
   late PageController _pageController; // PageController for PageView
   int _currentPage = 0; // Track the current page
   late Timer _timer; // Timer for automatic page rotation
-  int _currentIndex = 0; // Track the selected bottom navigation index
-
-  final List<Widget> _pages = [
-    HomePage(title: 'Home', description: 'Welcome to Pou!'), // Home Page
-    Center(child: Text('Cart Page')), // Placeholder for Cart Page
-    Center(child: Text('Chat Page')), // Placeholder for Chat Page
-    Center(child: Text('Profile Page')), // Placeholder for Profile Page
-  ];
 
   @override
   void initState() {
@@ -61,33 +52,8 @@ class _HomePageState extends State<HomePage> {
       home: Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(
-          child: _pages[_currentIndex], // Display the selected page
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index; // Update the selected index
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: const Color(0xFFD88144),
-          unselectedItemColor: Colors.grey,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.shopping_cart),
-              label: "Cart",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline),
-              label: "Chat",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              label: "Profile",
-            ),
-          ],
+          child:
+              _isExpanded ? _buildExpandedContent() : _buildCollapsedContent(),
         ),
       ),
     );
@@ -152,7 +118,7 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
             ),
-            Container(
+            SizedBox(
               height: 200,
               child: Stack(
                 children: [
@@ -317,13 +283,6 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, bool isSelected) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10.0),
-      child: Icon(icon, color: isSelected ? Color(0xFFD88144) : Colors.grey),
     );
   }
 

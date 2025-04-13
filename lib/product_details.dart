@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ProductDetailsPage extends StatelessWidget {
-  const ProductDetailsPage({Key? key}) : super(key: key);
+  const ProductDetailsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -236,12 +236,12 @@ class ProductDetails extends StatelessWidget {
   final String soldCount;
 
   const ProductDetails({
-    Key? key,
+    super.key,
     required this.productName,
     required this.productPrice,
     required this.productIcon,
     required this.soldCount,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
