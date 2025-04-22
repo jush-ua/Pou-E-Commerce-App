@@ -229,14 +229,47 @@ class _HomePageState extends State<HomePage> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder:
-                (context) => ProductDetails(
+          PageRouteBuilder(
+            pageBuilder:
+                (context, animation, secondaryAnimation) => ProductDetails(
                   productName: name,
                   productPrice: price,
                   productIcon: icon,
                   soldCount: soldCount,
                 ),
+            transitionsBuilder: (
+              context,
+              animation,
+              secondaryAnimation,
+              child,
+            ) {
+              var curve = Curves.easeOutCubic;
+              var curveTween = CurveTween(curve: curve);
+
+              var fadeTween = Tween<double>(
+                begin: 0.0,
+                end: 1.0,
+              ).chain(curveTween);
+
+              var scaleTween = Tween<double>(
+                begin: 0.85,
+                end: 1.0,
+              ).chain(curveTween);
+
+              var opacityTween = Tween<double>(
+                begin: 0.0,
+                end: 1.0,
+              ).chain(curveTween);
+
+              return FadeTransition(
+                opacity: animation.drive(opacityTween),
+                child: ScaleTransition(
+                  scale: animation.drive(scaleTween),
+                  child: child,
+                ),
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 500),
           ),
         );
       },
@@ -255,7 +288,12 @@ class _HomePageState extends State<HomePage> {
                     topRight: Radius.circular(4),
                   ),
                 ),
-                child: Center(child: Icon(icon, size: 60, color: Colors.brown)),
+                child: Hero(
+                  tag: 'product_$name',
+                  child: Center(
+                    child: Icon(icon, size: 60, color: Colors.brown),
+                  ),
+                ),
               ),
             ),
             Padding(
@@ -291,21 +329,67 @@ class _HomePageState extends State<HomePage> {
     required String title,
     required String description,
   }) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 8.0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        color: Colors.grey[200],
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 60, color: Colors.brown),
-            SizedBox(height: 10),
-            Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
-            Text(description),
-          ],
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder:
+                (context, animation, secondaryAnimation) => ProductDetails(
+                  productName: title,
+                  productPrice:
+                      "N/A", // You can replace this with actual price if available
+                  productIcon: icon,
+                  soldCount:
+                      "N/A", // Replace with actual sold count if available
+                ),
+            transitionsBuilder: (
+              context,
+              animation,
+              secondaryAnimation,
+              child,
+            ) {
+              var curve = Curves.easeOutCubic;
+              var curveTween = CurveTween(curve: curve);
+
+              var fadeTween = Tween<double>(
+                begin: 0.0,
+                end: 1.0,
+              ).chain(curveTween);
+
+              var scaleTween = Tween<double>(
+                begin: 0.85,
+                end: 1.0,
+              ).chain(curveTween);
+
+              return FadeTransition(
+                opacity: animation.drive(fadeTween),
+                child: ScaleTransition(
+                  scale: animation.drive(scaleTween),
+                  child: child,
+                ),
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
+      },
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 8.0),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: Colors.grey[200],
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 60, color: Colors.brown),
+              SizedBox(height: 10),
+              Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(description),
+            ],
+          ),
         ),
       ),
     );
