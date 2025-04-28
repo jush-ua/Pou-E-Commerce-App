@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "688651285687",
+    "project_id": "pou-ecommerce",
+    "storage_bucket": "pou-ecommerce.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:688651285687:android:77b5af277aeafcd1cdc932",
+        "android_client_info": {
+          "package_name": "com.example.pou"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBt_mtdCWjjuwM4b3WCivda4Wqf-g-INQw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

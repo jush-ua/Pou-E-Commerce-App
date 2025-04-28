@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart'; // Import Firebase Core
 import 'home.dart'; // Import the HomePage widget
 import 'profile.dart'; // Import the ProfilePage widget
 import 'search.dart'; // Import the SearchPage widget
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is initialized
+  await Firebase.initializeApp(); // Initialize Firebase
   runApp(const MyApp());
 }
 
@@ -177,7 +180,10 @@ class CustomBottomNavigationBar extends StatelessWidget {
     final double screenWidth = MediaQuery.of(context).size.width;
 
     return Container(
-      height: screenWidth * 0.15, // Adjust height dynamically
+      height: screenWidth * 0.18, // Increased height to avoid overflow
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewPadding.bottom,
+      ), // Add padding for safe area
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -252,9 +258,10 @@ class CustomBottomNavigationBar extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFFE47F43)
-                  : Colors.grey.withOpacity(0.2),
+              color:
+                  isSelected
+                      ? const Color(0xFFE47F43)
+                      : Colors.grey.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
