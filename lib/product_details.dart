@@ -5,14 +5,16 @@ import 'search.dart';
 class ProductDetails extends StatefulWidget {
   final String productName;
   final String productPrice;
-  final IconData productIcon;
+  final String productDescription;
+  final String imageUrl;
   final String soldCount;
 
   const ProductDetails({
     super.key,
     required this.productName,
     required this.productPrice,
-    required this.productIcon,
+    required this.productDescription,
+    required this.imageUrl,
     required this.soldCount,
   });
 
@@ -66,45 +68,7 @@ class _ProductDetailsState extends State<ProductDetails>
         child: AppBar(
           backgroundColor: const Color(0xFFE47F43),
           elevation: 0,
-          title: Row(
-            children: [
-              const Icon(Icons.cloud, color: Colors.white),
-              const SizedBox(width: 8),
-              const Text(
-                'pou',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.search, color: Colors.white),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SearchScreen(), // Replace with your SearchScreen
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.shopping_cart_outlined,
-                  color: Colors.white,
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CartPage(),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
+          title: Text(widget.productName),
         ),
       ),
       body: SingleChildScrollView(
@@ -120,10 +84,20 @@ class _ProductDetailsState extends State<ProductDetails>
               decoration: BoxDecoration(
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(20),
+                image:
+                    widget.imageUrl.isNotEmpty
+                        ? DecorationImage(
+                          image: NetworkImage(widget.imageUrl),
+                          fit: BoxFit.cover,
+                        )
+                        : null,
               ),
-              child: Center(
-                child: Icon(widget.productIcon, size: 100, color: Colors.brown),
-              ),
+              child:
+                  widget.imageUrl.isEmpty
+                      ? const Center(
+                        child: Icon(Icons.image, size: 100, color: Colors.grey),
+                      )
+                      : null,
             ),
 
             // Title + Favorite
@@ -150,75 +124,31 @@ class _ProductDetailsState extends State<ProductDetails>
                           setState(() => isFavorite = !isFavorite);
                         },
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.shopping_cart_outlined),
-                        onPressed: () {},
-                      ),
                     ],
                   ),
                 ],
               ),
             ),
 
-            // Size options
+            // Price
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Wrap(
-                spacing: 10,
-                children:
-                    [
-                      '8x10',
-                      '10x12',
-                      '12x14',
-                      '14x16',
-                    ].map(_buildSizeOption).toList(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Price: ${widget.productPrice}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  color: Color(0xFFE47F43),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
 
-            const Divider(thickness: 1, height: 32),
-
-            // Animated price
+            // Sold Count
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: Text(
-                        'Price: ${widget.productPrice}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          color: Color(0xFFE47F43),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  AnimatedBuilder(
-                    animation: _animationController,
-                    builder: (_, child) {
-                      final v = (_animationController.value - 0.4).clamp(
-                        0.0,
-                        1.0,
-                      );
-                      return Opacity(
-                        opacity: v,
-                        child: Transform.translate(
-                          offset: Offset(0, 20 * (1 - v)),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: Text(
-                      'Sold: ${widget.soldCount}',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Sold: ${widget.soldCount}',
+                style: const TextStyle(color: Colors.grey),
               ),
             ),
 
@@ -232,65 +162,13 @@ class _ProductDetailsState extends State<ProductDetails>
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                "This is a premium product from our exclusive collection. Perfect for everyday use and makes a great gift!",
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Add to Cart Button
-            Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Added to cart!"),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE47F43),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  "Add to Cart",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            // Recommendations
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: const Text(
-                "You Might Also Like",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                widget.productDescription,
+                style: const TextStyle(color: Colors.black87),
               ),
             ),
-            const SizedBox(height: 10),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: List.generate(5, (_) => _buildRecommendationItem()),
-              ),
-            ),
-
-            const SizedBox(height: 40),
           ],
         ),
       ),

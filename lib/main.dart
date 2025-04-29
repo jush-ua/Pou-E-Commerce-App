@@ -1,12 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart'; // Import Firebase Core
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home.dart'; // Import the HomePage widget
 import 'profile.dart'; // Import the ProfilePage widget
 import 'search.dart'; // Import the SearchPage widget
+import 'session_manager.dart'; // Import the SessionManager widget
+import 'login.dart'; // Import the LoginPage widget
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is initialized
-  await Firebase.initializeApp(); // Initialize Firebase
+
+  // Initialize Firebase
+  await Firebase.initializeApp();
+
+  // Initialize Supabase
+  await Supabase.initialize(
+    url:
+        'https://yvyknbymnqpwpxzkabnc.supabase.co', // Replace with your Supabase URL
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eWtuYnltbnFwd3B4emthYm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4OTAyMzIsImV4cCI6MjA2MTQ2NjIzMn0.Y2Gpho8Hg_GBMo6P1J0i6fdVaKJ6nGdeaRm_HwzGSMY', // Replace with your Supabase anon key
+  );
+
   runApp(const MyApp());
 }
 
@@ -30,42 +44,69 @@ class MyApp extends StatelessWidget {
           },
         ),
       ),
-      home: const MainScreen(),
+      home: SessionManager(
+        onSessionValid:
+            (username) => MainScreen(
+              isLimited: false,
+              initialPageIndex: 0, // ProfilePage index
+              username: username,
+            ),
+        onSessionInvalid:
+            () => MainScreen(
+              isLimited: true, // Limited features for unauthenticated users
+              initialPageIndex: 0, // Always redirect to the HomePage
+              username: 'Guest',
+            ),
+      ),
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final bool isLimited; // Add a flag for limited features
+  final int initialPageIndex; // Add an initial page index
+  final String username; // Add a username parameter
+
+  const MainScreen({
+    super.key,
+    this.isLimited = false,
+    this.initialPageIndex = 0, // Default to HomePage
+    this.username = 'Guest',
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
-  int _selectedIndex = 0; // Set HomePage (index 0) as the starting page
+  late int _selectedIndex;
   late AnimationController _animationController;
 
   // Create a list of pages that will be displayed
-  final List<Widget> _pages = [
-    const HomePage(
-      title: 'Home',
-      description: 'Welcome to the Home Page',
-    ), // Actual HomePage
-    const CartPage(), // CartPage
-    const SearchScreen(), // SearchPage
-    const ChatPage(), // ChatPage
-    const ProfilePage(), // ProfilePage
-  ];
+  late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialPageIndex; // Set the initial page index
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
     _animationController.forward();
+
+    // Define pages based on access level
+    _pages = [
+      const HomePage(title: 'Home', description: 'Welcome to the Home Page'),
+      widget.isLimited
+          ? const Center(child: Text('Upgrade to access the Cart'))
+          : const CartPage(),
+      const SearchScreen(),
+      widget.isLimited
+          ? const Center(child: Text('Upgrade to access Chat features'))
+          : const ChatPage(),
+      ProfilePage(username: widget.username), // Pass username to ProfilePage
+    ];
   }
 
   @override
@@ -109,7 +150,19 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
         selectedIndex: _selectedIndex,
-        onItemTapped: _onItemTapped,
+        onItemTapped: (index) {
+          if (widget.isLimited && (index == 1 || index == 3)) {
+            // Show a message for restricted features
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('This feature is available for logged-in users.'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          } else {
+            _onItemTapped(index);
+          }
+        },
       ),
     );
   }

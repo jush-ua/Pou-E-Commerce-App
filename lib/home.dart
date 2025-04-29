@@ -1,6 +1,7 @@
 import 'dart:async'; // Import for Timer
 import 'package:flutter/material.dart';
 import 'product_details.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomePage extends StatefulWidget {
   final String title;
@@ -17,6 +18,28 @@ class _HomePageState extends State<HomePage> {
   late PageController _pageController; // PageController for PageView
   int _currentPage = 0; // Track the current page
   late Timer _timer; // Timer for automatic page rotation
+  List<Map<String, dynamic>> _products = [];
+  bool _isLoading = true;
+
+  Future<void> _fetchProducts() async {
+    try {
+      final querySnapshot =
+          await FirebaseFirestore.instance.collection('products').get();
+
+      setState(() {
+        _products =
+            querySnapshot.docs
+                .map((doc) => doc.data() as Map<String, dynamic>)
+                .toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching products: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -36,6 +59,7 @@ class _HomePageState extends State<HomePage> {
         );
       }
     });
+    _fetchProducts();
   }
 
   @override
@@ -190,28 +214,45 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
             ),
-            GridView.count(
+            GridView.builder(
               shrinkWrap: true,
               physics: NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              childAspectRatio: 0.8,
-              padding: EdgeInsets.all(10),
-              children: [
-                _buildProductCard(
-                  'Poute Bag',
-                  Icons.shopping_bag,
-                  'P637.28',
-                  '599',
-                ),
-                _buildProductCard('Pou Mug', Icons.coffee, 'P564.54', '478'),
-                _buildProductCard('Pou Cap', Icons.face, 'P399.99', '325'),
-                _buildProductCard(
-                  'Pou Phone Case',
-                  Icons.phone_iphone,
-                  'P299.99',
-                  '210',
-                ),
-              ],
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.8,
+              ),
+              itemCount: _products.length,
+              itemBuilder: (context, index) {
+                final product = _products[index];
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => ProductDetails(
+                              productName: product['name'] ?? 'Unknown Product',
+                              productPrice:
+                                  'P${product['price']?.toStringAsFixed(2) ?? '0.00'}',
+                              productDescription:
+                                  product['description'] ??
+                                  'No description available',
+                              imageUrl: product['imageUrl'] ?? '',
+                              soldCount:
+                                  product['soldCount']?.toString() ?? '0',
+                            ),
+                      ),
+                    );
+                  },
+                  child: _buildProductCard(
+                    product['name'] ?? 'Unknown Product',
+                    Icons.shopping_bag,
+                    'P${product['price']?.toStringAsFixed(2) ?? '0.00'}',
+                    'Sold: ${product['soldCount'] ?? '0'}',
+                    product['imageUrl'] ?? '',
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -224,6 +265,7 @@ class _HomePageState extends State<HomePage> {
     IconData icon,
     String price,
     String soldCount,
+    String imageUrl, // Add imageUrl parameter
   ) {
     return GestureDetector(
       onTap: () {
@@ -234,7 +276,8 @@ class _HomePageState extends State<HomePage> {
                 (context, animation, secondaryAnimation) => ProductDetails(
                   productName: name,
                   productPrice: price,
-                  productIcon: icon,
+                  productDescription: 'No description available',
+                  imageUrl: imageUrl,
                   soldCount: soldCount,
                 ),
             transitionsBuilder: (
@@ -256,13 +299,8 @@ class _HomePageState extends State<HomePage> {
                 end: 1.0,
               ).chain(curveTween);
 
-              var opacityTween = Tween<double>(
-                begin: 0.0,
-                end: 1.0,
-              ).chain(curveTween);
-
               return FadeTransition(
-                opacity: animation.drive(opacityTween),
+                opacity: animation.drive(fadeTween),
                 child: ScaleTransition(
                   scale: animation.drive(scaleTween),
                   child: child,
@@ -287,13 +325,20 @@ class _HomePageState extends State<HomePage> {
                     topLeft: Radius.circular(4),
                     topRight: Radius.circular(4),
                   ),
+                  image:
+                      imageUrl.isNotEmpty
+                          ? DecorationImage(
+                            image: NetworkImage(imageUrl),
+                            fit: BoxFit.cover,
+                          )
+                          : null,
                 ),
-                child: Hero(
-                  tag: 'product_$name',
-                  child: Center(
-                    child: Icon(icon, size: 60, color: Colors.brown),
-                  ),
-                ),
+                child:
+                    imageUrl.isEmpty
+                        ? Center(
+                          child: Icon(icon, size: 60, color: Colors.brown),
+                        )
+                        : null,
               ),
             ),
             Padding(
@@ -310,7 +355,7 @@ class _HomePageState extends State<HomePage> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        'Sold: $soldCount',
+                        soldCount,
                         style: TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
@@ -337,11 +382,11 @@ class _HomePageState extends State<HomePage> {
             pageBuilder:
                 (context, animation, secondaryAnimation) => ProductDetails(
                   productName: title,
-                  productPrice:
-                      "N/A", // You can replace this with actual price if available
-                  productIcon: icon,
-                  soldCount:
-                      "N/A", // Replace with actual sold count if available
+                  productPrice: "N/A",
+                  productDescription:
+                      "Description not available", // Add placeholder
+                  imageUrl: "", // Add placeholder
+                  soldCount: "N/A",
                 ),
             transitionsBuilder: (
               context,
