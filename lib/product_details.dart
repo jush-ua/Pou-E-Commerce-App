@@ -22,43 +22,9 @@ class ProductDetails extends StatefulWidget {
   State<ProductDetails> createState() => _ProductDetailsState();
 }
 
-class _ProductDetailsState extends State<ProductDetails>
-    with SingleTickerProviderStateMixin {
-  String selectedSize = '10x12';
+class _ProductDetailsState extends State<ProductDetails> {
   bool isFavorite = false;
-
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.2),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
-    );
-
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
+  static const Color primaryColor = Color(0xFFD18050);
 
   @override
   Widget build(BuildContext context) {
@@ -66,9 +32,17 @@ class _ProductDetailsState extends State<ProductDetails>
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
         child: AppBar(
-          backgroundColor: const Color(0xFFE47F43),
+          backgroundColor: primaryColor,
           elevation: 0,
-          title: Text(widget.productName),
+          title: Text(
+            widget.productName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+          iconTheme: const IconThemeData(color: Colors.white),
         ),
       ),
       body: SingleChildScrollView(
@@ -84,20 +58,18 @@ class _ProductDetailsState extends State<ProductDetails>
               decoration: BoxDecoration(
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(20),
-                image:
-                    widget.imageUrl.isNotEmpty
-                        ? DecorationImage(
-                          image: NetworkImage(widget.imageUrl),
-                          fit: BoxFit.cover,
-                        )
-                        : null,
-              ),
-              child:
-                  widget.imageUrl.isEmpty
-                      ? const Center(
-                        child: Icon(Icons.image, size: 100, color: Colors.grey),
+                image: widget.imageUrl.isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(widget.imageUrl),
+                        fit: BoxFit.cover,
                       )
-                      : null,
+                    : null,
+              ),
+              child: widget.imageUrl.isEmpty
+                  ? const Center(
+                      child: Icon(Icons.image, size: 100, color: Colors.grey),
+                    )
+                  : null,
             ),
 
             // Title + Favorite
@@ -106,25 +78,25 @@ class _ProductDetailsState extends State<ProductDetails>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    widget.productName,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      widget.productName,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF333333),
+                      ),
                     ),
                   ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          isFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: isFavorite ? Colors.red : Colors.black,
-                        ),
-                        onPressed: () {
-                          setState(() => isFavorite = !isFavorite);
-                        },
-                      ),
-                    ],
+                  IconButton(
+                    icon: Icon(
+                      isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: isFavorite ? Colors.red : Colors.black,
+                      size: 28,
+                    ),
+                    onPressed: () {
+                      setState(() => isFavorite = !isFavorite);
+                    },
                   ),
                 ],
               ),
@@ -137,7 +109,7 @@ class _ProductDetailsState extends State<ProductDetails>
                 'Price: ${widget.productPrice}',
                 style: const TextStyle(
                   fontSize: 20,
-                  color: Color(0xFFE47F43),
+                  color: primaryColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -148,83 +120,101 @@ class _ProductDetailsState extends State<ProductDetails>
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 'Sold: ${widget.soldCount}',
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14,
+                ),
               ),
             ),
 
             const Divider(thickness: 1, height: 32),
 
             // Description
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: const Text(
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
                 "Product Description",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF333333),
+                ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
                 widget.productDescription,
-                style: const TextStyle(color: Colors.black87),
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontSize: 16,
+                  height: 1.5,
+                ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSizeOption(String size) {
-    bool isSelected = selectedSize == size;
-
-    return GestureDetector(
-      onTap: () => setState(() => selectedSize = size),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE47F43) : Colors.grey[200],
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          size,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecommendationItem() {
-    return Container(
-      width: 120,
-      margin: const EdgeInsets.only(right: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(10),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              spreadRadius: 1,
+              blurRadius: 5,
+              offset: const Offset(0, -2),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Related Product",
-            style: TextStyle(fontWeight: FontWeight.bold),
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Text(
-            "\$14.99",
-            style: TextStyle(
-              color: Color(0xFFE47F43),
-              fontWeight: FontWeight.bold,
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  // Add to cart logic
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: primaryColor),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text(
+                  'Add to Cart',
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  // Buy now logic
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text(
+                  'Buy Now',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

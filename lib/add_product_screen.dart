@@ -54,7 +54,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
       // Step 2: Save product details to Firestore
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        throw Exception("User not logged in");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You must be logged in to add a product')),
+        );
+        return;
       }
 
       final productData = {
@@ -85,9 +88,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
       Navigator.pop(context); // Go back to the previous screen
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to add product: $e')));
+      if (e.toString().contains('permission-denied')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to add a product.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add product: $e')),
+        );
+      }
     }
   }
 

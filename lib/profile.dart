@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'login.dart'; // Import your LoginPage here
+import 'login.dart'; // Import the LoginModal and showLoginModal function
 import 'request_seller.dart'; // Import your RequestSellerPage here
 import 'seller_dashboard.dart'; // Import your SellerDashboard here
+import 'edit_profile.dart'; // Import the EditProfilePage here
 
 class ProfilePage extends StatelessWidget {
   final String username;
@@ -47,18 +48,30 @@ class ProfilePage extends StatelessWidget {
                   Row(
                     children: [
                       // Profile icon
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.person_outline,
-                          size: 40,
-                          color: Colors.white,
-                        ),
+                      FutureBuilder<DocumentSnapshot>(
+                        future:
+                            FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(FirebaseAuth.instance.currentUser?.uid)
+                                .get(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const CircularProgressIndicator();
+                          }
+
+                          final userData =
+                              snapshot.data?.data() as Map<String, dynamic>?;
+                          final profileImageUrl =
+                              userData?['profile_image_url'] ??
+                              'https://yvyknbymnqpwpxzkabnc.supabase.co/storage/v1/object/public/profile-pictures//image_2025-05-16_221317901.png';
+
+                          return CircleAvatar(
+                            radius: 30,
+                            backgroundImage: NetworkImage(profileImageUrl),
+                            backgroundColor: Colors.white.withOpacity(0.3),
+                          );
+                        },
                       ),
                       const SizedBox(width: 15),
                       // Username or Guest Text
@@ -74,9 +87,7 @@ class ProfilePage extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            isGuest
-                                ? "Please login to continue"
-                                : "Welcome back!",
+                            isGuest ? "Please login to continue" : "Welcome!",
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -99,13 +110,8 @@ class ProfilePage extends StatelessWidget {
                     ),
                     onPressed: () async {
                       if (isGuest) {
-                        // Navigate to LoginPage and replace the current page
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LoginPage(),
-                          ),
-                        );
+                        // Show the login modal instead of navigating to a new page
+                        showLoginModal(context);
                       } else {
                         // Show confirmation dialog before logging out
                         final shouldLogout = await showDialog<bool>(
@@ -228,6 +234,34 @@ class ProfilePage extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  // Edit Profile Button
+                  if (!isGuest)
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFFE47F43),
+                        minimumSize: const Size(double.infinity, 45),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const EditProfileScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        "Edit Profile",
+                        style: TextStyle(
+                          color: Color(0xFFE47F43),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

@@ -26,18 +26,35 @@ class _HomePageState extends State<HomePage> {
       final querySnapshot =
           await FirebaseFirestore.instance.collection('products').get();
 
-      setState(() {
-        _products =
-            querySnapshot.docs
-                .map((doc) => doc.data() as Map<String, dynamic>)
-                .toList();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _products =
+              querySnapshot.docs
+                  .map((doc) => doc.data() as Map<String, dynamic>)
+                  .toList();
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       print('Error fetching products: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _products = []; // Ensure the list is empty in case of an error
+        });
+      }
+
+      // Show an error message to the user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().contains('permission-denied')
+                ? 'You do not have permission to access the products.'
+                : 'Failed to fetch products. Please try again later.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -47,14 +64,14 @@ class _HomePageState extends State<HomePage> {
     _pageController = PageController(initialPage: 0);
 
     // Start a timer to rotate pages every 3 seconds
-    _timer = Timer.periodic(Duration(seconds: 3), (Timer timer) {
+    _timer = Timer.periodic(const Duration(seconds: 3), (Timer timer) {
       if (_pageController.hasClients) {
         setState(() {
           _currentPage = (_currentPage + 1) % 3; // Assuming 3 pages
         });
         _pageController.animateToPage(
           _currentPage,
-          duration: Duration(milliseconds: 500),
+          duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
         );
       }
@@ -65,7 +82,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _timer.cancel(); // Cancel the timer when the widget is disposed
-    _pageController.dispose(); // Dispose the PageController
+    _pageController.dispose(); // Dispose of the PageController
     super.dispose();
   }
 
@@ -77,7 +94,80 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.white,
         body: SafeArea(
           child:
-              _isExpanded ? _buildExpandedContent() : _buildCollapsedContent(),
+              _isLoading
+                  ? const Center(
+                    child:
+                        CircularProgressIndicator(), // Show a loading indicator
+                  )
+                  : _products.isEmpty
+                  ? const Center(
+                    child: Text(
+                      'No products available.',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  )
+                  : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            'All Products',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.8,
+                              ),
+                          itemCount: _products.length,
+                          itemBuilder: (context, index) {
+                            final product = _products[index];
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => ProductDetails(
+                                          productName:
+                                              product['name'] ??
+                                              'Unknown Product',
+                                          productPrice:
+                                              'P${product['price']?.toStringAsFixed(2) ?? '0.00'}',
+                                          productDescription:
+                                              product['description'] ??
+                                              'No description available',
+                                          imageUrl: product['imageUrl'] ?? '',
+                                          soldCount:
+                                              product['soldCount']
+                                                  ?.toString() ??
+                                              '0',
+                                        ),
+                                  ),
+                                );
+                              },
+                              child: _buildProductCard(
+                                product['name'] ?? 'Unknown Product',
+                                Icons.shopping_bag,
+                                'P${product['price']?.toStringAsFixed(2) ?? '0.00'}',
+                                'Sold: ${product['soldCount'] ?? '0'}',
+                                product['imageUrl'] ?? '',
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
         ),
       ),
     );
@@ -211,49 +301,66 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.all(16.0),
               child: Text(
                 'Best Seller',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.8,
+            if (_isLoading)
+              const Center(
+                child:
+                    CircularProgressIndicator(), // Show a loading indicator while fetching data
+              )
+            else if (_products.isEmpty)
+              const Center(
+                child: Text(
+                  'No products available.',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              )
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.8,
+                ),
+                itemCount: _products.length,
+                itemBuilder: (context, index) {
+                  final product = _products[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => ProductDetails(
+                                productName:
+                                    product['name'] ?? 'Unknown Product',
+                                productPrice:
+                                    'P${product['price']?.toStringAsFixed(2) ?? '0.00'}',
+                                productDescription:
+                                    product['description'] ??
+                                    'No description available',
+                                imageUrl: product['imageUrl'] ?? '',
+                                soldCount:
+                                    product['soldCount']?.toString() ?? '0',
+                              ),
+                        ),
+                      );
+                    },
+                    child: _buildProductCard(
+                      product['name'] ?? 'Unknown Product',
+                      Icons.shopping_bag,
+                      'P${product['price']?.toStringAsFixed(2) ?? '0.00'}',
+                      'Sold: ${product['soldCount'] ?? '0'}',
+                      product['imageUrl'] ?? '',
+                    ),
+                  );
+                },
               ),
-              itemCount: _products.length,
-              itemBuilder: (context, index) {
-                final product = _products[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => ProductDetails(
-                              productName: product['name'] ?? 'Unknown Product',
-                              productPrice:
-                                  'P${product['price']?.toStringAsFixed(2) ?? '0.00'}',
-                              productDescription:
-                                  product['description'] ??
-                                  'No description available',
-                              imageUrl: product['imageUrl'] ?? '',
-                              soldCount:
-                                  product['soldCount']?.toString() ?? '0',
-                            ),
-                      ),
-                    );
-                  },
-                  child: _buildProductCard(
-                    product['name'] ?? 'Unknown Product',
-                    Icons.shopping_bag,
-                    'P${product['price']?.toStringAsFixed(2) ?? '0.00'}',
-                    'Sold: ${product['soldCount'] ?? '0'}',
-                    product['imageUrl'] ?? '',
-                  ),
-                );
-              },
-            ),
           ],
         ),
       ),
@@ -265,106 +372,74 @@ class _HomePageState extends State<HomePage> {
     IconData icon,
     String price,
     String soldCount,
-    String imageUrl, // Add imageUrl parameter
+    String imageUrl,
   ) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          PageRouteBuilder(
-            pageBuilder:
-                (context, animation, secondaryAnimation) => ProductDetails(
-                  productName: name,
-                  productPrice: price,
-                  productDescription: 'No description available',
-                  imageUrl: imageUrl,
-                  soldCount: soldCount,
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.all(8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  topRight: Radius.circular(10),
                 ),
-            transitionsBuilder: (
-              context,
-              animation,
-              secondaryAnimation,
-              child,
-            ) {
-              var curve = Curves.easeOutCubic;
-              var curveTween = CurveTween(curve: curve);
-
-              var fadeTween = Tween<double>(
-                begin: 0.0,
-                end: 1.0,
-              ).chain(curveTween);
-
-              var scaleTween = Tween<double>(
-                begin: 0.85,
-                end: 1.0,
-              ).chain(curveTween);
-
-              return FadeTransition(
-                opacity: animation.drive(fadeTween),
-                child: ScaleTransition(
-                  scale: animation.drive(scaleTween),
-                  child: child,
-                ),
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-        );
-      },
-      child: Card(
-        elevation: 0,
-        color: Color(0xFFF0F0F0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(4),
-                  ),
-                  image:
-                      imageUrl.isNotEmpty
-                          ? DecorationImage(
-                            image: NetworkImage(imageUrl),
-                            fit: BoxFit.cover,
-                          )
-                          : null,
-                ),
-                child:
-                    imageUrl.isEmpty
-                        ? Center(
-                          child: Icon(icon, size: 60, color: Colors.brown),
+                image:
+                    imageUrl.isNotEmpty
+                        ? DecorationImage(
+                          image: NetworkImage(imageUrl),
+                          fit: BoxFit.cover,
                         )
                         : null,
+                color: Colors.grey[200],
               ),
+              child:
+                  imageUrl.isEmpty
+                      ? const Center(
+                        child: Icon(Icons.image, size: 60, color: Colors.grey),
+                      )
+                      : null,
             ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: TextStyle(fontWeight: FontWeight.bold)),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        price,
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        soldCount,
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
-                      ),
-                    ],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
-                ],
-              ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      price,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFE47F43),
+                      ),
+                    ),
+                    Text(
+                      soldCount,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart'; // Import Firebase Core
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'home.dart'; // Import the HomePage widget
 import 'profile.dart'; // Import the ProfilePage widget
 import 'search.dart'; // Import the SearchPage widget
@@ -14,11 +14,10 @@ void main() async {
   await Firebase.initializeApp();
 
   // Initialize Supabase
-  await Supabase.initialize(
-    url:
-        'https://yvyknbymnqpwpxzkabnc.supabase.co', // Replace with your Supabase URL
+  await sb.Supabase.initialize(
+    url: 'https://yvyknbymnqpwpxzkabnc.supabase.co',
     anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eWtuYnltbnFwd3B4emthYm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4OTAyMzIsImV4cCI6MjA2MTQ2NjIzMn0.Y2Gpho8Hg_GBMo6P1J0i6fdVaKJ6nGdeaRm_HwzGSMY', // Replace with your Supabase anon key
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eWtuYnltbnFwd3B4emthYm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4OTAyMzIsImV4cCI6MjA2MTQ2NjIzMn0.Y2Gpho8Hg_GBMo6P1J0i6fdVaKJ6nGdeaRm_HwzGSMY',
   );
 
   runApp(const MyApp());
