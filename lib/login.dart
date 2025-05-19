@@ -28,9 +28,27 @@ class _LoginModalState extends State<LoginModal>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  final Map<TextEditingController, FocusNode> _focusNodes = {};
+  final Map<TextEditingController, bool> _isFocused = {};
+
   @override
   void initState() {
     super.initState();
+
+    // Initialize focus nodes and listeners
+    [_emailController, _passwordController, _usernameController].forEach((
+      controller,
+    ) {
+      final focusNode = FocusNode();
+      _focusNodes[controller] = focusNode;
+      _isFocused[controller] = false;
+
+      focusNode.addListener(() {
+        setState(() {
+          _isFocused[controller] = focusNode.hasFocus;
+        });
+      });
+    });
 
     // Initialize animation controller
     _animationController = AnimationController(
@@ -57,6 +75,9 @@ class _LoginModalState extends State<LoginModal>
 
   @override
   void dispose() {
+    // Dispose focus nodes
+    _focusNodes.values.forEach((node) => node.dispose());
+
     _emailController.dispose();
     _passwordController.dispose();
     _usernameController.dispose();
@@ -200,6 +221,10 @@ class _LoginModalState extends State<LoginModal>
 
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn();
+
+      // Always sign out first to force account picker
+      await googleSignIn.signOut();
+
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
       if (googleUser == null) {
@@ -262,13 +287,18 @@ class _LoginModalState extends State<LoginModal>
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Google Sign-In failed: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      Navigator.of(context).pop(); // Close the modal first
+      Future.delayed(const Duration(milliseconds: 100), () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Google Sign-In failed: ${e is FirebaseAuthException ? e.message : e.toString()}',
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -324,16 +354,31 @@ class _LoginModalState extends State<LoginModal>
 
                     // Logo/branding element
                     Container(
-                      width: isSmallScreen ? 60 : 70,
-                      height: isSmallScreen ? 60 : 70,
+                      width: isSmallScreen ? 80 : 100,
+                      height: isSmallScreen ? 80 : 100,
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE47F43).withOpacity(0.2),
+                        color: const Color(0xFFE47F43).withOpacity(0.1),
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                          ),
+                        ],
                       ),
-                      child: Icon(
-                        Icons.shopping_bag_outlined,
-                        size: isSmallScreen ? 30 : 40,
-                        color: const Color(0xFFE47F43),
+                      child: Image.asset(
+                        'assets/images/pou_logo_brown.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          // Fallback to icon if image loading fails
+                          return Icon(
+                            Icons.shopping_bag_outlined,
+                            size: isSmallScreen ? 30 : 40,
+                            color: const Color(0xFFE47F43),
+                          );
+                        },
                       ),
                     ),
                     SizedBox(height: isSmallScreen ? 12 : 16),
@@ -462,7 +507,6 @@ class _LoginModalState extends State<LoginModal>
                                 ? _registerUser
                                 : _loginUser,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE47F43),
                           foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(
                             vertical: isSmallScreen ? 12 : 16,
@@ -470,7 +514,23 @@ class _LoginModalState extends State<LoginModal>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          elevation: 2,
+                          elevation: 3,
+                          backgroundColor: const Color(0xFFD18050),
+                        ).copyWith(
+                          backgroundColor: MaterialStateProperty.resolveWith((
+                            states,
+                          ) {
+                            // Use a subtle gradient effect for the background
+                            return const Color(0xFFE47F43);
+                          }),
+                          overlayColor: MaterialStateProperty.resolveWith((
+                            states,
+                          ) {
+                            if (states.contains(MaterialState.pressed)) {
+                              return Colors.white.withOpacity(0.1);
+                            }
+                            return null;
+                          }),
                         ),
                         child:
                             _isLoading
@@ -485,15 +545,23 @@ class _LoginModalState extends State<LoginModal>
                                   ),
                                 )
                                 : Row(
+                                  mainAxisSize:
+                                      MainAxisSize
+                                          .min, // Ensure row doesn't expand too much
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      _isRegistering
-                                          ? 'Create Account'
-                                          : 'Sign In',
-                                      style: TextStyle(
-                                        fontSize: isSmallScreen ? 14 : 16,
-                                        fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: Text(
+                                        _isRegistering
+                                            ? 'Create Account'
+                                            : 'Sign In',
+                                        overflow:
+                                            TextOverflow
+                                                .ellipsis, // Handle text overflow
+                                        style: TextStyle(
+                                          fontSize: isSmallScreen ? 14 : 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                     SizedBox(width: isSmallScreen ? 4 : 8),
@@ -550,6 +618,28 @@ class _LoginModalState extends State<LoginModal>
                           icon: Image.network(
                             'https://developers.google.com/identity/images/g-logo.png',
                             height: isSmallScreen ? 20 : 24,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.g_mobiledata, size: 24);
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return SizedBox(
+                                height: isSmallScreen ? 20 : 24,
+                                width: isSmallScreen ? 20 : 24,
+                                child: const Center(
+                                  child: SizedBox(
+                                    height: 12,
+                                    width: 12,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Color(0xFFD18050),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                           label: Text(
                             'Continue with Google',
@@ -621,16 +711,32 @@ class _LoginModalState extends State<LoginModal>
     Widget? suffixIcon,
     required String? Function(String?) validator,
   }) {
+    final isFocused = _isFocused[controller] ?? false;
+
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(
+          color: isFocused ? const Color(0xFFD18050) : Colors.grey.shade300,
+          width: isFocused ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color:
+                isFocused
+                    ? const Color(0xFFD18050).withOpacity(0.1)
+                    : Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            spreadRadius: isFocused ? 2 : 1,
+          ),
+        ],
       ),
       child: TextFormField(
         controller: controller,
+        focusNode: _focusNodes[controller],
         obscureText: obscureText,
         keyboardType: keyboardType,
         style: const TextStyle(fontSize: 16),
@@ -638,41 +744,34 @@ class _LoginModalState extends State<LoginModal>
         decoration: InputDecoration(
           isDense: true, // Makes the field more compact
           contentPadding: const EdgeInsets.symmetric(
-            vertical: 14, // Balanced vertical padding
+            vertical: 16, // Increase slightly for better vertical centering
             horizontal: 12,
           ),
           border: InputBorder.none,
           labelText: labelText,
           labelStyle: TextStyle(
             color: Colors.grey.shade600,
-            height: 1, // Adjusts the label height for better alignment
+            fontSize: 15, // Slightly adjust font size
           ),
-          alignLabelWithHint: true, // Aligns the label with the text
-          prefixIcon: SizedBox(
+          alignLabelWithHint: true,
+          // Remove height property that could cause misalignment
+          prefixIcon: Container(
             width: 48,
-            height: 48,
+            margin: const EdgeInsets.only(right: 4), // Add margin for spacing
             child: Center(
-              child: Icon(
-                icon, 
-                color: const Color(0xFFE47F43),
-                size: 22,
-              ),
+              child: Icon(icon, color: const Color(0xFFD18050), size: 22),
             ),
           ),
+          // Use Container instead of SizedBox for better control
           prefixIconConstraints: const BoxConstraints(
             minWidth: 48,
             minHeight: 48,
           ),
-          suffixIcon: suffixIcon != null
-              ? SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Center(child: suffixIcon),
-                )
-              : null,
-          suffixIconConstraints: suffixIcon != null
-              ? const BoxConstraints(minWidth: 48, minHeight: 48)
-              : null,
+          // Ensure consistent constraints for suffix icons
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 48,
+            minHeight: 48,
+          ),
           floatingLabelBehavior: FloatingLabelBehavior.never,
         ),
         validator: validator,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'add_product_screen.dart';
+import 'manage_products_page.dart';
 
 class SellerDashboard extends StatefulWidget {
   const SellerDashboard({super.key});
@@ -105,10 +106,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: _accentColor,
-      ),
+      SnackBar(content: Text(message), backgroundColor: _accentColor),
     );
   }
 
@@ -121,13 +119,19 @@ class _SellerDashboardState extends State<SellerDashboard> {
         );
         break;
       case 'manageProducts':
-        _showSnackBar('Manage Products functionality coming soon');
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ManageProductsPage()),
+        );
         break;
       case 'manageOrders':
         _showSnackBar('Manage Orders functionality coming soon');
         break;
       case 'storeSettings':
         _showSnackBar('Store Settings functionality coming soon');
+        break;
+      case 'orderDetails':
+        _showSnackBar('Order details functionality coming soon');
         break;
       default:
         _showSnackBar('Navigation not implemented');
@@ -139,9 +143,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.white,
-        body: Center(
-          child: CircularProgressIndicator(color: _primaryColor),
-        ),
+        body: Center(child: CircularProgressIndicator(color: _primaryColor)),
       );
     }
 
@@ -170,10 +172,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
                       vertical: 12,
                     ),
                   ),
-                  child: const Text(
-                    'Go Back',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  child: const Text('Go Back', style: TextStyle(fontSize: 16)),
                 ),
               ],
             ),
@@ -207,10 +206,13 @@ class _SellerDashboardState extends State<SellerDashboard> {
               _buildStoreInfoCard(),
               const SizedBox(height: 20),
               _buildStatCardsRow(),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               _buildQuickActionsSection(),
-              const SizedBox(height: 32),
+              _buildTopProductsSection(),
+              const SizedBox(height: 16),
               _buildRecentActivitySection(),
+              const SizedBox(height: 24),
+              // Add monthly sales chart here if you want
             ],
           ),
         ),
@@ -315,8 +317,8 @@ class _SellerDashboardState extends State<SellerDashboard> {
         Expanded(
           child: _buildStatCard(
             'Revenue',
-            '\$${_totalRevenue.toStringAsFixed(2)}',
-            Icons.attach_money,
+            '₱${_totalRevenue.toStringAsFixed(2)}', // Changed $ to ₱
+            Icons.payments_outlined, // Changed icon to better represent money
             Colors.green,
           ),
         ),
@@ -372,56 +374,190 @@ class _SellerDashboardState extends State<SellerDashboard> {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4.0, bottom: 12.0),
-          child: Text(
-            'Recent Activity',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: _accentColor,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recent Activity',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _accentColor,
+                ),
+              ),
+              TextButton(
+                onPressed: () => _navigateTo('manageOrders'),
+                child: Text('See All', style: TextStyle(color: _primaryColor)),
+              ),
+            ],
           ),
         ),
         Card(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 2,
-          child: _totalOrders > 0
-              ? ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _totalOrders > 3 ? 3 : _totalOrders,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      leading: const Icon(Icons.receipt, color: Colors.orange),
-                      title: const Text('Order #12345'),
-                      subtitle: const Text('May 15, 2025 • \$23.99'),
-                      trailing: const Icon(Icons.chevron_right),
-                    );
-                  },
-                )
-              : const Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.receipt_long, color: Colors.grey, size: 48),
-                        SizedBox(height: 12),
-                        Text(
-                          'No recent orders found',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w500,
+          child:
+              _totalOrders > 0
+                  ? ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _totalOrders > 3 ? 3 : _totalOrders,
+                    separatorBuilder:
+                        (context, index) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      return ListTile(
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: _primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.shopping_bag_outlined,
+                            color: _primaryColor,
                           ),
                         ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Your recent orders will appear here',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        title: const Text('Order #12345'),
+                        subtitle: const Text(
+                          'May 19, 2025 • ₱23.99',
+                        ), // Changed $ to ₱
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Text(
+                            'Completed',
+                            style: TextStyle(color: Colors.green, fontSize: 12),
+                          ),
                         ),
-                      ],
+                        onTap: () => _navigateTo('orderDetails'),
+                      );
+                    },
+                  )
+                  : const Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.receipt_long,
+                            color: Colors.grey,
+                            size: 48,
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'No recent orders found',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Your recent orders will appear here',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopProductsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4.0, bottom: 16.0, top: 32.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Top Products',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _accentColor,
                 ),
+              ),
+              TextButton(
+                onPressed: () => _navigateTo('manageProducts'),
+                child: Text('See All', style: TextStyle(color: _primaryColor)),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          height: 160,
+          child:
+              _totalProducts > 0
+                  ? ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _totalProducts > 5 ? 5 : _totalProducts,
+                    itemBuilder: (context, index) {
+                      return Card(
+                        margin: const EdgeInsets.only(right: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                        child: Container(
+                          width: 140,
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  height: 80,
+                                  width: double.infinity,
+                                  color: Colors.grey.withOpacity(0.2),
+                                  child: Icon(Icons.image, color: Colors.grey),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Product Name',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '₱199.99',
+                                style: TextStyle(
+                                  color: _primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                  : Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Text(
+                        'No products yet. Add your first product!',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  ),
         ),
       ],
     );
@@ -473,19 +609,13 @@ class _SellerDashboardState extends State<SellerDashboard> {
             customBorder: const CircleBorder(),
             child: Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               child: Icon(icon, color: Colors.white, size: 28),
             ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -549,60 +679,6 @@ class _SellerDashboardState extends State<SellerDashboard> {
     } catch (e) {
       // Handle upload or Firestore errors
       _showSnackBar('Failed to add product: $e');
-    }
-  }
-
-  Future<void> _editProduct(String productId, Map<String, dynamic> updatedData) async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception("User not logged in");
-      }
-
-      // Update product in the main 'products' collection
-      await FirebaseFirestore.instance
-          .collection('products')
-          .doc(productId)
-          .update(updatedData);
-
-      // Update product in the seller's specific collection
-      await FirebaseFirestore.instance
-          .collection('sellers')
-          .doc(user.uid)
-          .collection('seller_products')
-          .doc(productId)
-          .update(updatedData);
-
-      _showSnackBar('Product updated successfully!');
-    } catch (e) {
-      _showSnackBar('Failed to update product: $e');
-    }
-  }
-
-  Future<void> _deleteProduct(String productId) async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception("User not logged in");
-      }
-
-      // Delete product from the main 'products' collection
-      await FirebaseFirestore.instance
-          .collection('products')
-          .doc(productId)
-          .delete();
-
-      // Delete product from the seller's specific collection
-      await FirebaseFirestore.instance
-          .collection('sellers')
-          .doc(user.uid)
-          .collection('seller_products')
-          .doc(productId)
-          .delete();
-
-      _showSnackBar('Product deleted successfully!');
-    } catch (e) {
-      _showSnackBar('Failed to delete product: $e');
     }
   }
 }

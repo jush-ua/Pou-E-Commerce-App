@@ -5,6 +5,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart'; // Add this import
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({Key? key}) : super(key: key);
@@ -22,9 +26,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _emailController = TextEditingController();
 
   File? _profileImage;
+  File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isProfileChanged = false;
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -33,6 +39,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // Define color constants
   static const Color primaryColor = Color(0xFFD18050);
   static const Color darkBrownColor = Color(0xFF64350F);
+
+  String? _googleProfileImageUrl;
 
   @override
   void initState() {
@@ -76,19 +84,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _phoneController.text = userData['phone'] ?? '';
         _emailController.text = userData['email'] ?? '';
 
-        // Fetch profile image from Supabase
-        if (userData['profile_image_url'] != null) {
-          final imageUrl = userData['profile_image_url'];
-          final response = await _supabase.storage
-              .from('profile-images')
-              .download(imageUrl);
-          if (response != null) {
-            final tempDir = Directory.systemTemp;
-            final tempFile = File('${tempDir.path}/$_userId-profile.jpg');
-            await tempFile.writeAsBytes(response);
+        // Fetch profile image from Supabase if URL/path exists
+        if (userData['profile_image_url'] != null &&
+            userData['profile_image_url'].toString().isNotEmpty) {
+          final imagePath = userData['profile_image_url'];
+          if (imagePath.startsWith('http')) {
+            // It's a public URL (Google, Facebook, etc.)
             setState(() {
-              _profileImage = tempFile;
+              _profileImage =
+                  null; // Not a File, use the URL directly in the widget
+              _selectedImage = null;
             });
+            // Store the URL in a separate variable if needed
+            _googleProfileImageUrl = imagePath;
+          } else {
+            // It's a Supabase Storage path
+            try {
+              final response = await _supabase.storage
+                  .from('profile-pictures')
+                  .download(imagePath);
+              if (response != null) {
+                final tempDir = Directory.systemTemp;
+                final tempFile = File('${tempDir.path}/$_userId-profile.jpg');
+                await tempFile.writeAsBytes(response);
+                setState(() {
+                  _profileImage = tempFile;
+                });
+              }
+            } catch (e) {
+              print('Profile image not found in storage, skipping: $e');
+            }
           }
         }
       } else {
@@ -117,26 +142,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
 
     try {
-      String? profileImageUrl;
+      String? profileImagePath;
 
-      // Upload profile image to Supabase
+      // Upload profile image to Supabase if changed
       if (_profileImage != null) {
         final fileName = '$_userId.jpg';
-        final response = await _supabase.storage
-            .from('profile-images')
-            .upload(
-              fileName,
-              _profileImage!,
-              fileOptions: const FileOptions(upsert: true),
-            );
+        final storageRef = _supabase.storage.from('profile-pictures');
+        // Upload the file (upsert: true to overwrite)
+        final response = await storageRef.upload(
+          fileName,
+          _profileImage!,
+          fileOptions: const FileOptions(upsert: true),
+        );
         if (response.isNotEmpty) {
-          profileImageUrl = response;
+          profileImagePath = fileName; // Store only the file name/path
         } else {
           throw Exception('Failed to upload profile image');
         }
       }
 
-      // Save user data to Firebase Firestore
+      // Prepare user data
       final userProfile = {
         'username': _nameController.text,
         'bio': _bioController.text,
@@ -144,13 +169,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'birthday': _birthdayController.text,
         'phone': _phoneController.text,
         'email': _emailController.text,
-        'profile_image_url': profileImageUrl,
+        if (profileImagePath != null) 'profile_image_url': profileImagePath,
       };
 
-      await _firestore
-          .collection('users')
-          .doc(_userId)
-          .set(userProfile, SetOptions(merge: true));
+      // Clean the data map of forbidden fields before update
+      final forbiddenFields = ['role'];
+      final safeData = Map<String, dynamic>.from(userProfile);
+      forbiddenFields.forEach(safeData.remove);
+
+      print('Current UID: $_userId');
+      print('User profile map: $safeData');
+
+      // Update user data in Firebase Firestore (use update instead of set)
+      await _firestore.collection('users').doc(_userId).update(safeData);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -174,24 +205,160 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     try {
+      // Handle permissions for Android
+      if (Platform.isAndroid) {
+        final deviceInfo = await DeviceInfoPlugin().androidInfo;
+        final sdkInt = deviceInfo.version.sdkInt;
+
+        if (source == ImageSource.gallery) {
+          PermissionStatus galleryStatus;
+          if (sdkInt >= 33) {
+            // Android 13+ (API 33+): Use photos permission
+            galleryStatus = await Permission.photos.status;
+            if (galleryStatus.isDenied) {
+              galleryStatus = await Permission.photos.request();
+            }
+            galleryStatus = await Permission.photos.status;
+          } else {
+            // Below Android 13: Use storage permission
+            galleryStatus = await Permission.storage.status;
+            if (galleryStatus.isDenied) {
+              galleryStatus = await Permission.storage.request();
+            }
+            galleryStatus = await Permission.storage.status;
+          }
+
+          // Handle permanent denial
+          if (galleryStatus.isPermanentlyDenied) {
+            if (!mounted) return;
+            await showDialog(
+              context: context,
+              builder:
+                  (context) => AlertDialog(
+                    title: const Text('Permissions Required'),
+                    content: const Text(
+                      'Gallery access requires permission. Please enable it in app settings.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          openAppSettings();
+                        },
+                        child: const Text('Open Settings'),
+                      ),
+                    ],
+                  ),
+            );
+            return;
+          }
+
+          // Check if still denied after request
+          if (galleryStatus.isDenied || galleryStatus.isRestricted) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Gallery access requires permission'),
+              ),
+            );
+            return;
+          }
+        } else if (source == ImageSource.camera) {
+          // Check camera permission
+          PermissionStatus cameraStatus = await Permission.camera.status;
+          if (cameraStatus.isDenied) {
+            cameraStatus = await Permission.camera.request();
+          }
+          cameraStatus = await Permission.camera.status;
+          if (cameraStatus.isPermanentlyDenied) {
+            if (!mounted) return;
+            await showDialog(
+              context: context,
+              builder:
+                  (context) => AlertDialog(
+                    title: const Text('Permissions Required'),
+                    content: const Text(
+                      'Camera access requires permission. Please enable it in app settings.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          openAppSettings();
+                        },
+                        child: const Text('Open Settings'),
+                      ),
+                    ],
+                  ),
+            );
+            return;
+          }
+          if (cameraStatus.isDenied || cameraStatus.isRestricted) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Camera permission is required')),
+            );
+            return;
+          }
+        }
+      }
+
+      // Pick image
       final XFile? pickedImage = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 85,
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 70,
       );
 
-      if (pickedImage != null) {
-        setState(() {
-          _profileImage = File(pickedImage.path);
-        });
+      // Handle null result (user canceled)
+      if (pickedImage == null) {
+        return;
       }
+
+      // Process image
+      final File imageFile = File(pickedImage.path);
+      final fileSize = await imageFile.length();
+
+      // Check file size
+      if (fileSize > 5 * 1024 * 1024) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image is too large. Please select a smaller image.'),
+          ),
+        );
+        return;
+      }
+
+      // Update state
+      setState(() {
+        _selectedImage = imageFile;
+        _profileImage = imageFile;
+        _isProfileChanged = true;
+      });
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+      print('Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to get image: ${e.toString().contains('permission') ? 'Permission denied' : 'Please try again with a different image'}',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -256,6 +423,91 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
         ) ??
         false;
+  }
+
+  Future<void> _showImageSourceDialog() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Choose Profile Picture",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: darkBrownColor,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildImagePickerOption(
+                    icon: Icons.photo_library,
+                    label: "Gallery",
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickImage(ImageSource.gallery);
+                    },
+                  ),
+                  _buildImagePickerOption(
+                    icon: Icons.camera_alt,
+                    label: "Camera",
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickImage(ImageSource.camera);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildImagePickerOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: primaryColor, width: 2),
+            ),
+            child: Icon(icon, color: primaryColor, size: 30),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: const TextStyle(
+              color: darkBrownColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -425,7 +677,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           children: [
                             // Pou logo image
                             Image.asset(
-                              'assets/images/pou_logo.png',
+                              'assets/images/pou_logo_brown.png',
                               height: 24,
                               width: 24,
                               errorBuilder: (context, error, stackTrace) {
@@ -449,60 +701,138 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
 
                       // Profile Photo Circle
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(color: Colors.white, width: 4),
-                          image:
-                              _profileImage != null
-                                  ? DecorationImage(
-                                    image: FileImage(_profileImage!),
-                                    fit: BoxFit.cover,
-                                  )
-                                  : null,
-                        ),
-                        child:
-                            _profileImage == null
-                                ? const Center(
-                                  child: Icon(
-                                    Icons.person,
-                                    size: 60,
-                                    color: Colors.grey,
+                      Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          GestureDetector(
+                            // Make the entire circle clickable
+                            onTap: () => _showImageSourceDialog(),
+                            child: Container(
+                              width: 110,
+                              height: 110,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 4,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
                                   ),
-                                )
-                                : null,
+                                ],
+                              ),
+                              child: ClipOval(
+                                child:
+                                    _profileImage != null
+                                        ? Image.file(
+                                          _profileImage!,
+                                          fit: BoxFit.cover,
+                                          width: 110,
+                                          height: 110,
+                                          errorBuilder: (
+                                            context,
+                                            error,
+                                            stackTrace,
+                                          ) {
+                                            return const Center(
+                                              child: Icon(
+                                                Icons.person,
+                                                size: 60,
+                                                color: Colors.grey,
+                                              ),
+                                            );
+                                          },
+                                        )
+                                        : (_googleProfileImageUrl != null
+                                            ? Image.network(
+                                              _googleProfileImageUrl!,
+                                              fit: BoxFit.cover,
+                                              width: 110,
+                                              height: 110,
+                                              errorBuilder: (
+                                                context,
+                                                error,
+                                                stackTrace,
+                                              ) {
+                                                return const Center(
+                                                  child: Icon(
+                                                    Icons.person,
+                                                    size: 60,
+                                                    color: Colors.grey,
+                                                  ),
+                                                );
+                                              },
+                                            )
+                                            : const Center(
+                                              child: Icon(
+                                                Icons.person,
+                                                size: 60,
+                                                color: Colors.grey,
+                                              ),
+                                            )),
+                              ),
+                            ),
+                          ),
+                          // Camera icon
+                          GestureDetector(
+                            onTap: () => _showImageSourceDialog(),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: primaryColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
 
                       // Choose Image Button
                       GestureDetector(
-                        onTap: _pickImage,
+                        onTap: () => _showImageSourceDialog(),
                         child: Container(
                           margin: const EdgeInsets.only(top: 16),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                            horizontal: 16,
+                            vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: darkBrownColor,
-                            border: Border.all(color: Colors.white, width: 1),
+                            borderRadius: BorderRadius.circular(30),
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.camera_alt,
-                                color: Colors.white,
-                                size: 16,
+                                color: primaryColor,
+                                size: 18,
                               ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Choose Image',
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Change Photo',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: darkBrownColor,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                 ),
@@ -554,7 +884,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 suffixIcon: PopupMenuButton<String>(
                                   icon: const Icon(
                                     Icons.arrow_drop_down,
-                                    color: Colors.white,
+                                    color:
+                                        darkBrownColor, // Changed from white to darkBrownColor
                                   ),
                                   onSelected: (value) {
                                     setState(() {
@@ -594,7 +925,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   icon: const Icon(
                                     Icons.calendar_today,
                                     size: 20,
-                                    color: Colors.white,
+                                    color:
+                                        darkBrownColor, // Changed from white to darkBrownColor
                                   ),
                                   onPressed: () => _selectDate(context),
                                 ),

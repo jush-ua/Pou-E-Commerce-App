@@ -6,31 +6,55 @@ import 'profile.dart'; // Import the ProfilePage widget
 import 'search.dart'; // Import the SearchPage widget
 import 'session_manager.dart'; // Import the SessionManager widget
 import 'login.dart'; // Import the LoginPage widget
+import 'splash_screen.dart'; // Import the new splash screen
+import 'cart.dart'; // Import the CartPage widget
+import 'chat.dart'; // Import the ChatPage widget
+import 'chatlist.dart'; // Import the ChatUserListPage widget
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is initialized
-
-  // Initialize Firebase
-  await Firebase.initializeApp();
-
-  // Initialize Supabase
-  await sb.Supabase.initialize(
-    url: 'https://yvyknbymnqpwpxzkabnc.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eWtuYnltbnFwd3B4emthYm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4OTAyMzIsImV4cCI6MjA2MTQ2NjIzMn0.Y2Gpho8Hg_GBMo6P1J0i6fdVaKJ6nGdeaRm_HwzGSMY',
-  );
-
+void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _initialized = false;
+
+  // Initialize app
+  Future<void> _initializeApp() async {
+    WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is initialized
+
+    // Initialize Firebase
+    await Firebase.initializeApp();
+
+    // Initialize Supabase
+    await sb.Supabase.initialize(
+      url: 'https://yvyknbymnqpwpxzkabnc.supabase.co',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eWtuYnltbnFwd3B4emthYm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4OTAyMzIsImV4cCI6MjA2MTQ2NjIzMn0.Y2Gpho8Hg_GBMo6P1J0i6fdVaKJ6nGdeaRm_HwzGSMY',
+    );
+
+    setState(() {
+      _initialized = true;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeApp();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Custom App Bar',
+      title: 'Pou Shop',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFE47F43)),
         useMaterial3: true,
@@ -43,20 +67,32 @@ class MyApp extends StatelessWidget {
           },
         ),
       ),
-      home: SessionManager(
-        onSessionValid:
-            (username) => MainScreen(
-              isLimited: false,
-              initialPageIndex: 0, // ProfilePage index
-              username: username,
-            ),
-        onSessionInvalid:
-            () => MainScreen(
-              isLimited: true, // Limited features for unauthenticated users
-              initialPageIndex: 0, // Always redirect to the HomePage
-              username: 'Guest',
-            ),
-      ),
+      home:
+          !_initialized
+              ? SplashScreen(
+                onInitializationComplete: () {
+                  if (!_initialized) {
+                    // In case initialization takes longer than splash screen animation
+                    setState(() {
+                      _initialized = true;
+                    });
+                  }
+                },
+              )
+              : SessionManager(
+                onSessionValid:
+                    (username) => MainScreen(
+                      isLimited: false,
+                      initialPageIndex: 0,
+                      username: username,
+                    ),
+                onSessionInvalid:
+                    () => MainScreen(
+                      isLimited: true,
+                      initialPageIndex: 0,
+                      username: 'Guest',
+                    ),
+              ),
     );
   }
 }
@@ -99,11 +135,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       const HomePage(title: 'Home', description: 'Welcome to the Home Page'),
       widget.isLimited
           ? const Center(child: Text('Upgrade to access the Cart'))
-          : const CartPage(),
+          : const CartPage(), // <-- This is your real cart.dart CartPage
       const SearchScreen(),
       widget.isLimited
           ? const Center(child: Text('Upgrade to access Chat features'))
-          : const ChatPage(),
+          : ChatUserListPage(),
       ProfilePage(username: widget.username), // Pass username to ProfilePage
     ];
   }
@@ -339,84 +375,3 @@ class CustomBottomNavigationBar extends StatelessWidget {
 }
 
 // home.dart
-
-class CartPage extends StatelessWidget {
-  const CartPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.shopping_cart,
-              size: screenWidth * 0.2, // Adjust icon size
-              color: const Color(0xFFE47F43),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Cart Page',
-              style: TextStyle(
-                fontSize: screenWidth * 0.06,
-              ), // Adjust font size
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Processing your order...'),
-                    duration: Duration(seconds: 1),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(
-                  horizontal: screenWidth * 0.2, // Adjust padding
-                  vertical: screenWidth * 0.04,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: Text(
-                'Check Out',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.05, // Adjust font size
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ChatPage extends StatelessWidget {
-  const ChatPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Chat Icon
-            const Icon(Icons.chat_bubble, size: 80, color: Color(0xFFE47F43)),
-            const SizedBox(height: 16),
-            // Chat Text
-            const Text('Chat Page', style: TextStyle(fontSize: 24)),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -46,8 +46,15 @@ dependencies:
   
   supabase_flutter: ^2.8.4
   image_picker: ^1.1.2
+  image_cropper: ^9.1.0
+  flutter_image_compress: ^2.4.0
   google_sign_in: ^6.3.0
   http: ^1.4.0
+  path: ^1.9.1
+  permission_handler: ^12.0.0+1
+  cached_network_image: ^3.4.1
+  path_provider: ^2.1.5
+  device_info_plus: ^11.4.0
   
 dev_dependencies:
   flutter_test:
@@ -77,6 +84,7 @@ flutter:
   #   - images/a_dot_ham.jpeg
   assets:
     - assets/images/pou_logo.png
+    - assets/images/pou_logo_brown.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
