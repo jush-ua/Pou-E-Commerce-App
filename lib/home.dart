@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'product_details.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // <-- Add this import
 
 class HomePage extends StatefulWidget {
   final String title;
@@ -268,12 +269,13 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                 );
                               },
-                              child: _buildProductCard(
+                              child: _buildEnhancedProductCard(
                                 product['name'] ?? 'Unknown Product',
                                 Icons.shopping_bag,
                                 '₱${product['price']?.toStringAsFixed(2) ?? '0.00'}',
                                 'Sold: ${product['soldCount'] ?? '0'}',
                                 product['imageUrl'] ?? '',
+                                product,
                               ),
                             );
                           },
@@ -748,5 +750,235 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  // Add this new enhanced product card method
+  Widget _buildEnhancedProductCard(
+    String name,
+    IconData icon,
+    String price,
+    String soldCount,
+    String imageUrl,
+    Map<String, dynamic> product,
+  ) {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.all(8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              Container(
+                height: 130, // Slightly reduced height here
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(10),
+                    topRight: Radius.circular(10),
+                  ),
+                  color: Colors.grey[200],
+                ),
+                child: imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(10),
+                          topRight: Radius.circular(10),
+                        ),
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          placeholder: (context, url) => Center(
+                            child: SizedBox(
+                              width: 30,
+                              height: 30,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFE47F43),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => const Center(
+                            child: Icon(
+                              Icons.image,
+                              size: 60,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          memCacheWidth: 300,
+                        ),
+                      )
+                    : const Center(
+                        child: Icon(
+                          Icons.image,
+                          size: 60,
+                          color: Colors.grey,
+                        ),
+                      ),
+              ),
+              // Discount badge (unchanged)
+              if (((product['discount'] ?? 0) > 0) ||
+                  product['bestSeller'] == true)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          product['bestSeller'] == true
+                              ? Colors.amber
+                              : Colors.red,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      product['bestSeller'] == true
+                          ? 'BEST SELLER'
+                          : '${product['discount'] ?? 10}% OFF',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ),
+              // Add to cart button removed
+            ],
+          ),
+          // Updated padding and content layout
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10.0, 8.0, 10.0, 6.0), // Reduced padding
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13, // Slightly smaller font
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2), // Smaller spacing
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFE47F43),
+                              fontSize: 13, // Slightly smaller font
+                            ),
+                          ),
+                          if ((product['discount'] ?? 0) > 0 &&
+                              price.startsWith('₱'))
+                            Text(
+                              '₱${((double.parse(price.replaceAll('₱', '')) / (1 - (product['discount'] ?? 10) / 100)).toStringAsFixed(2))}',
+                              style: const TextStyle(
+                                decoration: TextDecoration.lineThrough,
+                                color: Colors.grey,
+                                fontSize: 10,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.amber, size: 12), // Smaller icon
+                        Text(
+                          ' ${product['rating'] ?? 4.5}',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 11, // Smaller font
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Text(
+                  soldCount,
+                  style: const TextStyle(color: Colors.grey, fontSize: 11), // Smaller font
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Add this method inside _HomePageState:
+  Future<void> _addToCart(Map<String, dynamic> product) async {
+    try {
+      // Get the current user from Firebase Auth
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You must be logged in to add to cart.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      final String userId = user.uid;
+
+      final cartRef = FirebaseFirestore.instance
+          .collection('carts')
+          .doc(userId)
+          .collection('items')
+          .doc(product['id']);
+
+      final cartItem = await cartRef.get();
+
+      if (cartItem.exists) {
+        // If already in cart, increase quantity
+        await cartRef.update({'quantity': FieldValue.increment(1)});
+      } else {
+        // Add new item to cart
+        await cartRef.set({
+          'productId': product['id'],
+          'name': product['name'],
+          'price': product['price'],
+          'imageUrl': product['imageUrl'],
+          'quantity': 1,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${product['name']} added to cart!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to add to cart: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

@@ -6,6 +6,8 @@ import 'request_seller.dart'; // Import your RequestSellerPage here
 import 'seller_dashboard.dart'; // Import your SellerDashboard here
 import 'edit_profile.dart'; // Import the EditProfilePage here
 import 'wishlist_page.dart'; // Import your WishlistPage here
+import 'purchase_history_page.dart'; // <-- Add this import
+import 'addresses_page.dart';
 
 class ProfilePage extends StatelessWidget {
   final String username;
@@ -539,7 +541,12 @@ class ProfilePage extends StatelessWidget {
                         if (isGuest) {
                           _promptLogin(context);
                         } else {
-                          // Navigate to purchase history
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PurchaseHistoryPage(initialTab: 'TO SHIP'),
+                            ),
+                          );
                         }
                       },
                       child: Row(
@@ -579,7 +586,12 @@ class ProfilePage extends StatelessWidget {
                         if (isGuest) {
                           _promptLogin(context);
                         } else {
-                          // Navigate to "to ship" orders
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PurchaseHistoryPage(initialTab: 'TO SHIP'),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -591,7 +603,12 @@ class ProfilePage extends StatelessWidget {
                         if (isGuest) {
                           _promptLogin(context);
                         } else {
-                          // Navigate to "to receive" orders
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PurchaseHistoryPage(initialTab: 'TO RECEIVE'),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -603,7 +620,12 @@ class ProfilePage extends StatelessWidget {
                         if (isGuest) {
                           _promptLogin(context);
                         } else {
-                          // Navigate to completed orders
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PurchaseHistoryPage(initialTab: 'COMPLETED'),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -615,7 +637,12 @@ class ProfilePage extends StatelessWidget {
                         if (isGuest) {
                           _promptLogin(context);
                         } else {
-                          // Navigate to "to rate" orders
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PurchaseHistoryPage(initialTab: 'TO RATE'),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -662,7 +689,12 @@ class ProfilePage extends StatelessWidget {
                               if (isGuest) {
                                 _promptLogin(context);
                               } else {
-                                // Navigate to addresses
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AddressesPage(),
+                                  ),
+                                );
                               }
                             },
                           ),

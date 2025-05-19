@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'cart.dart';
+import 'addresses_page.dart';
 
 class CheckoutPage extends StatefulWidget {
   final List<CartItem> items;
@@ -15,8 +16,8 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   int _currentStep = 0;
-  final _addressController = TextEditingController();
-  final _phoneController = TextEditingController();
+  String? _selectedAddressId;
+  Map<String, dynamic>? _selectedAddress;
   String? _selectedPaymentMethod;
   bool _isProcessing = false;
 
@@ -29,10 +30,61 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final _formKey = GlobalKey<FormState>();
 
   @override
-  void dispose() {
-    _addressController.dispose();
-    _phoneController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _fetchDefaultAddress();
+  }
+
+  Future<void> _fetchDefaultAddress() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final addresses =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('addresses')
+            .orderBy('isDefault', descending: true)
+            .get();
+    if (addresses.docs.isNotEmpty) {
+      setState(() {
+        _selectedAddressId = addresses.docs.first.id;
+        _selectedAddress = addresses.docs.first.data();
+      });
+    }
+  }
+
+  Future<void> _promptAddAddress() async {
+    final result = await showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('No Saved Addresses'),
+            content: const Text(
+              'You have no saved addresses. Would you like to add one now?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Add Address'),
+              ),
+            ],
+          ),
+    );
+    if (result == true) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AddressesPage()),
+      );
+      await _fetchDefaultAddress();
+    }
   }
 
   Future<void> _processOrder() async {
@@ -69,8 +121,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   },
                 )
                 .toList(),
-        'shippingAddress': _addressController.text,
-        'phoneNumber': _phoneController.text,
+        'shippingAddress': _selectedAddress?['addressLine'] ?? '',
+        'recipient': _selectedAddress?['name'] ?? '',
+        'phoneNumber': _selectedAddress?['phone'] ?? '',
         'paymentMethod': _selectedPaymentMethod,
         'total': widget.items.fold(0.0, (t, i) => t + i.price * i.quantity),
         'timestamp': FieldValue.serverTimestamp(),
@@ -93,6 +146,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       // Create a separate order for each seller
       for (final sellerId in sellerGroups.keys) {
+        if (sellerId == null || sellerId.isEmpty) {
+          debugPrint(
+            'Invalid sellerId in cart item, skipping order creation for this seller.',
+          );
+          continue;
+        }
         final sellerOrderId =
             FirebaseFirestore.instance.collection('orders').doc().id;
         final sellerItems = sellerGroups[sellerId]!;
@@ -112,8 +171,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     },
                   )
                   .toList(),
-          'shippingAddress': _addressController.text,
-          'phoneNumber': _phoneController.text,
+          'shippingAddress': _selectedAddress?['addressLine'] ?? '',
+          'recipient': _selectedAddress?['name'] ?? '',
+          'phoneNumber': _selectedAddress?['phone'] ?? '',
           'paymentMethod': _selectedPaymentMethod,
           'total': sellerItems.fold(0.0, (t, i) => t + i.price * i.quantity),
           'timestamp': FieldValue.serverTimestamp(),
@@ -206,9 +266,29 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget _buildCheckoutStepper() {
     return Stepper(
       currentStep: _currentStep,
-      onStepContinue: () {
+      onStepContinue: () async {
         if (_currentStep == 0) {
-          if (_formKey.currentState?.validate() != true) return;
+          final user = FirebaseAuth.instance.currentUser;
+          if (user == null) return;
+          final addresses =
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .collection('addresses')
+                  .get();
+          if (addresses.docs.isEmpty) {
+            await _promptAddAddress();
+            return;
+          }
+          if (_selectedAddress == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please select a shipping address'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
         } else if (_currentStep == 1) {
           if (_selectedPaymentMethod == null) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -238,44 +318,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       steps: [
         Step(
           title: const Text('Shipping Information'),
-          content: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Shipping Address',
-                    hintText: 'Enter your complete address',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your shipping address';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone Number',
-                    hintText: 'Enter your contact number',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.phone,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your phone number';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
+          content: _buildAddressSelector(),
           isActive: _currentStep >= 0,
           state: _currentStep > 0 ? StepState.complete : StepState.indexed,
         ),
@@ -371,10 +414,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               ),
               const Divider(height: 24),
-              if (_addressController.text.isNotEmpty)
-                _buildInfoRow('Shipping Address:', _addressController.text),
-              if (_phoneController.text.isNotEmpty)
-                _buildInfoRow('Phone:', _phoneController.text),
+              if (_selectedAddress != null)
+                _buildInfoRow(
+                  'Shipping Address:',
+                  _selectedAddress!['addressLine'] ?? '',
+                ),
+              if (_selectedAddress != null)
+                _buildInfoRow('Recipient:', _selectedAddress!['name'] ?? ''),
+              if (_selectedAddress != null)
+                _buildInfoRow('Phone:', _selectedAddress!['phone'] ?? ''),
               if (_selectedPaymentMethod != null)
                 _buildInfoRow('Payment Method:', _selectedPaymentMethod!),
               const Divider(height: 24),
@@ -403,6 +451,95 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ],
       controlsBuilder: (BuildContext context, ControlsDetails details) {
         return const SizedBox.shrink(); // Hide default controls, we use bottom bar
+      },
+    );
+  }
+
+  Widget _buildAddressSelector() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Text('Not logged in');
+    }
+    return StreamBuilder<QuerySnapshot>(
+      stream:
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('addresses')
+              .orderBy('isDefault', descending: true)
+              .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return Column(
+            children: [
+              const Text('No saved addresses.'),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add_location_alt),
+                label: const Text('Add Address'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddressesPage(),
+                    ),
+                  );
+                  await _fetchDefaultAddress();
+                },
+              ),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            ...docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return RadioListTile<String>(
+                value: doc.id,
+                groupValue: _selectedAddressId,
+                activeColor: _primaryColor,
+                title: Text(data['name'] ?? ''),
+                subtitle: Text('${data['addressLine']}\n${data['phone']}'),
+                isThreeLine: true,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedAddressId = val;
+                    _selectedAddress = data;
+                  });
+                },
+                secondary:
+                    data['isDefault'] == true
+                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        : null,
+              );
+            }),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.edit_location_alt),
+                label: const Text('Manage Addresses'),
+                style: TextButton.styleFrom(foregroundColor: _primaryColor),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddressesPage(),
+                    ),
+                  );
+                  await _fetchDefaultAddress();
+                },
+              ),
+            ),
+          ],
+        );
       },
     );
   }
@@ -465,7 +602,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ElevatedButton(
             onPressed: () {
               if (_currentStep == 0) {
-                if (_formKey.currentState?.validate() != true) return;
+                if (_selectedAddress == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please select a shipping address'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
                 setState(() {
                   _currentStep = 1;
                 });

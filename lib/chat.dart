@@ -7,12 +7,16 @@ class ChatPage extends StatefulWidget {
   final String peerId;
   final String peerUsername;
   final String? peerAvatar; // Optional peer avatar URL
+  final String? sellerId;   // <-- Add this
+  final String? productName; // <-- Add this
 
   const ChatPage({
     super.key,
     required this.peerId,
     required this.peerUsername,
     this.peerAvatar,
+    this.sellerId,      // <-- Add this
+    this.productName,   // <-- Add this
   });
 
   @override

@@ -17,6 +17,14 @@ class _CartPageState extends State<CartPage> {
 
   // Track which items are selected for checkout
   final Set<String> _selectedCartItemIds = {};
+  bool _allItemsSelectedByDefault = true;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // We'll populate the selected items when data is loaded
+  }
 
   // Helper to update quantity in Firestore
   Future<void> _updateQuantity(String cartItemId, int newQuantity) async {
@@ -49,6 +57,12 @@ class _CartPageState extends State<CartPage> {
     }
 
     if (_userId == null) return;
+    
+    // Also remove from selected items if present
+    setState(() {
+      _selectedCartItemIds.remove(cartItemId);
+    });
+    
     await FirebaseFirestore.instance
         .collection('users')
         .doc(_userId)
@@ -77,6 +91,11 @@ class _CartPageState extends State<CartPage> {
     for (var doc in items.docs) {
       await doc.reference.delete();
     }
+    
+    // Clear selections when cart is cleared
+    setState(() {
+      _selectedCartItemIds.clear();
+    });
   }
 
   double _calculateTotal(List<CartItem> items) {
@@ -94,6 +113,31 @@ class _CartPageState extends State<CartPage> {
     });
   }
 
+  // Initialize selected items (run only once when items are first loaded)
+  void _initializeSelectedItems(List<CartItem> items) {
+    if (!_isInitialized && _allItemsSelectedByDefault) {
+      setState(() {
+        _selectedCartItemIds.clear();
+        for (final item in items) {
+          _selectedCartItemIds.add(item.id);
+        }
+        _isInitialized = true;
+      });
+    }
+  }
+
+  // Select or deselect all items
+  void _toggleSelectAll(List<CartItem> items, bool selectAll) {
+    setState(() {
+      _selectedCartItemIds.clear();
+      if (selectAll) {
+        for (final item in items) {
+          _selectedCartItemIds.add(item.id);
+        }
+      }
+    });
+  }
+
   // Calculate total for selected items only
   double _calculateSelectedTotal(List<CartItem> items) {
     return items
@@ -105,7 +149,12 @@ class _CartPageState extends State<CartPage> {
   void _checkoutSelected(BuildContext context, List<CartItem> items) async {
     final selectedItems =
         items.where((item) => _selectedCartItemIds.contains(item.id)).toList();
-    if (selectedItems.isEmpty) return;
+    if (selectedItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one item to checkout')),
+      );
+      return;
+    }
 
     // Navigate to the separate checkout page
     final result = await Navigator.push(
@@ -199,7 +248,6 @@ class _CartPageState extends State<CartPage> {
               ],
             ),
           ),
-          // Remove the standalone cart title since it's now in the top row
 
           // Cart items list
           Expanded(
@@ -247,235 +295,279 @@ class _CartPageState extends State<CartPage> {
                         price: (data['price'] ?? 0).toDouble(),
                         quantity: (data['quantity'] ?? 1) as int,
                         imageUrl: data['imageUrl'] ?? '',
-                        sellerId: data['sellerId'] ?? '', // <-- Add this
+                        sellerId: data['sellerId'] ?? '',
                       );
                     }).toList();
 
-                // Ensure all items are selected by default if none selected yet
-                if (_selectedCartItemIds.isEmpty) {
-                  for (final item in items) {
-                    _selectedCartItemIds.add(item.id);
-                  }
+                // Initialize selected items if needed
+                if (!_isInitialized && _allItemsSelectedByDefault) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _initializeSelectedItems(items);
+                  });
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    final isSelected = _selectedCartItemIds.contains(item.id);
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          // Product image (no change)
-                          Container(
-                            width: 80,
-                            height: 80,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(16),
-                                bottomLeft: Radius.circular(16),
+                // Add select all checkbox
+                return Column(
+                  children: [
+                    // Select all option
+                    if (items.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Select All',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                            child:
-                                item.imageUrl.isNotEmpty
-                                    ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: CachedNetworkImage(
-                                        imageUrl: item.imageUrl,
-                                        fit: BoxFit.cover,
-                                        placeholder:
-                                            (context, url) => const SizedBox(
-                                              width: 30,
-                                              height: 30,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Color(0xFFD18050),
-                                              ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '(${_selectedCartItemIds.length}/${items.length})',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const Spacer(),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(30),
+                              onTap: () {
+                                final allSelected = _selectedCartItemIds.length == items.length;
+                                _toggleSelectAll(items, !allSelected);
+                              },
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _selectedCartItemIds.length == items.length
+                                      ? _primaryColor
+                                      : Colors.white,
+                                  border: Border.all(
+                                    color: _primaryColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: _selectedCartItemIds.length == items.length
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 16,
+                                      )
+                                    : Container(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    
+                    // Cart items
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: items.length,
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          final isSelected = _selectedCartItemIds.contains(item.id);
+                          
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              // Add a subtle highlight if selected
+                              border: isSelected 
+                                  ? Border.all(color: _primaryColor.withOpacity(0.5), width: 2)
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                // Product image
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  margin: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[300],
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child:
+                                      item.imageUrl.isNotEmpty
+                                          ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: CachedNetworkImage(
+                                              imageUrl: item.imageUrl,
+                                              fit: BoxFit.cover,
+                                              placeholder:
+                                                  (context, url) => const SizedBox(
+                                                    width: 30,
+                                                    height: 30,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Color(0xFFD18050),
+                                                    ),
+                                                  ),
+                                              errorWidget:
+                                                  (context, url, error) =>
+                                                      _buildPlaceholderImage(
+                                                        item.name,
+                                                      ),
+                                              memCacheWidth: 300,
                                             ),
-                                        errorWidget:
-                                            (context, url, error) =>
-                                                _buildPlaceholderImage(
-                                                  item.name,
-                                                ),
-                                        memCacheWidth: 300,
-                                      ),
-                                    )
-                                    : _buildPlaceholderImage(item.name),
-                          ),
+                                          )
+                                          : _buildPlaceholderImage(item.name),
+                                ),
 
-                          // Product details
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '₱${(item.price * item.quantity).toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: _primaryColor,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      // Quantity controls
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Colors.grey,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            4,
+                                // Product details
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
                                           ),
                                         ),
-                                        child: Row(
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          '₱${(item.price * item.quantity).toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: _primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
                                           children: [
-                                            InkWell(
-                                              onTap:
-                                                  () => _updateQuantity(
-                                                    item.id,
-                                                    item.quantity - 1,
-                                                  ),
-                                              child: Container(
-                                                width: 24,
-                                                height: 24,
-                                                alignment: Alignment.center,
-                                                child: const Icon(
-                                                  Icons.remove,
-                                                  size: 16,
-                                                ),
-                                              ),
-                                            ),
+                                            // Quantity controls
                                             Container(
-                                              width: 30,
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                '${item.quantity}',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: Colors.grey,
+                                                ),
+                                                borderRadius: BorderRadius.circular(
+                                                  4,
                                                 ),
                                               ),
-                                            ),
-                                            InkWell(
-                                              onTap:
-                                                  () => _updateQuantity(
-                                                    item.id,
-                                                    item.quantity + 1,
+                                              child: Row(
+                                                children: [
+                                                  InkWell(
+                                                    onTap:
+                                                        item.quantity > 1
+                                                            ? () => _updateQuantity(
+                                                                  item.id,
+                                                                  item.quantity - 1,
+                                                                )
+                                                            : null,
+                                                    child: Container(
+                                                      width: 24,
+                                                      height: 24,
+                                                      alignment: Alignment.center,
+                                                      child: Icon(
+                                                        Icons.remove,
+                                                        size: 16,
+                                                        color: item.quantity > 1
+                                                            ? Colors.black
+                                                            : Colors.grey,
+                                                      ),
+                                                    ),
                                                   ),
+                                                  Container(
+                                                    width: 30,
+                                                    alignment: Alignment.center,
+                                                    child: Text(
+                                                      '${item.quantity}',
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  InkWell(
+                                                    onTap:
+                                                        () => _updateQuantity(
+                                                              item.id,
+                                                              item.quantity + 1,
+                                                            ),
+                                                    child: Container(
+                                                      width: 24,
+                                                      height: 24,
+                                                      alignment: Alignment.center,
+                                                      child: const Icon(
+                                                        Icons.add,
+                                                        size: 16,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+
+                                            // Remove button
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                size: 20,
+                                              ),
+                                              onPressed: () => _removeItem(item.id),
+                                              tooltip: 'Remove item',
+                                            ),
+
+                                            // Spacer to push the checkbox to the right
+                                            const Spacer(),
+
+                                            // Checkbox on the right side
+                                            InkWell(
+                                              splashColor: _primaryColor.withOpacity(0.3),
+                                              borderRadius: BorderRadius.circular(30),
+                                              onTap: () => _toggleCartItemSelection(item.id),
                                               child: Container(
-                                                width: 24,
-                                                height: 24,
-                                                alignment: Alignment.center,
-                                                child: const Icon(
-                                                  Icons.add,
-                                                  size: 16,
+                                                width: 28,
+                                                height: 28,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: isSelected
+                                                      ? _primaryColor
+                                                      : Colors.white,
+                                                  border: Border.all(
+                                                    color: _primaryColor,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                child: Center(
+                                                  child: Icon(
+                                                    Icons.check,
+                                                    color: isSelected
+                                                        ? Colors.white
+                                                        : _primaryColor,
+                                                    size: 16,
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                           ],
                                         ),
-                                      ),
-
-                                      // Remove button
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          size: 20,
-                                        ),
-                                        onPressed: () => _removeItem(item.id),
-                                      ),
-
-                                      // Spacer to push the checkbox to the right
-                                      const Spacer(),
-
-                                      // Check icon on the right side
-                                      InkWell(
-                                        splashColor: _primaryColor.withOpacity(
-                                          0.3,
-                                        ),
-                                        borderRadius: BorderRadius.circular(30),
-                                        onTap: () {
-                                          print(
-                                            "Before: ${_selectedCartItemIds.contains(item.id)}",
-                                          );
-                                          setState(() {
-                                            if (_selectedCartItemIds.contains(
-                                              item.id,
-                                            )) {
-                                              _selectedCartItemIds.remove(
-                                                item.id,
-                                              );
-                                            } else {
-                                              _selectedCartItemIds.add(item.id);
-                                            }
-                                          });
-                                          print(
-                                            "After: ${_selectedCartItemIds.contains(item.id)}",
-                                          );
-                                        },
-                                        child: Container(
-                                          width: 28,
-                                          height: 28,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color:
-                                                _selectedCartItemIds.contains(
-                                                      item.id,
-                                                    )
-                                                    ? _primaryColor
-                                                    : Colors.white,
-                                            border: Border.all(
-                                              color: _primaryColor,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: Center(
-                                            child: Icon(
-                                              Icons.check,
-                                              color:
-                                                  _selectedCartItemIds.contains(
-                                                        item.id,
-                                                      )
-                                                      ? Colors.white
-                                                      : _primaryColor,
-                                              size: 16,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 );
               },
             ),
           ),
+          
           // Total and checkout section
           StreamBuilder<QuerySnapshot>(
             stream:
@@ -495,20 +587,29 @@ class _CartPageState extends State<CartPage> {
                           price: (data['price'] ?? 0).toDouble(),
                           quantity: (data['quantity'] ?? 1) as int,
                           imageUrl: data['imageUrl'] ?? '',
-                          sellerId: data['sellerId'] ?? '', // <-- Add this
+                          sellerId: data['sellerId'] ?? '',
                         );
                       }).toList()
                       : <CartItem>[];
               final selectedTotal = _calculateSelectedTotal(items);
+              final selectedCount = items.where((item) => _selectedCartItemIds.contains(item.id)).length;
 
               return Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFD18050),
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: _primaryColor,
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
                   ),
+                  // Add shadow for prominence
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -516,9 +617,9 @@ class _CartPageState extends State<CartPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Total',
-                          style: TextStyle(
+                        Text(
+                          'Total (${selectedCount} ${selectedCount == 1 ? 'item' : 'items'})',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
@@ -541,7 +642,9 @@ class _CartPageState extends State<CartPage> {
                               : () => _checkoutSelected(context, items),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
+                        foregroundColor: _primaryColor,
+                        disabledBackgroundColor: Colors.grey[300],
+                        disabledForegroundColor: Colors.grey[700],
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 32,
@@ -596,7 +699,7 @@ class CartItem {
   final double price;
   final int quantity;
   final String imageUrl;
-  final String sellerId; // <-- Add this
+  final String sellerId;
 
   CartItem({
     required this.id,
@@ -604,6 +707,6 @@ class CartItem {
     required this.price,
     required this.quantity,
     required this.imageUrl,
-    required this.sellerId, // <-- Add this
+    required this.sellerId,
   });
 }

@@ -9,7 +9,9 @@ import 'login.dart'; // Import the LoginPage widget
 import 'splash_screen.dart'; // Import the new splash screen
 import 'cart.dart'; // Import the CartPage widget
 import 'chat.dart'; // Import the ChatPage widget
+import 'chatlist.dart'; // Import the ChatPage widget
 import 'chatlist.dart'; // Import the ChatUserListPage widget
+import 'checkout_page.dart'; // Import the CheckoutPage widget
 
 void main() {
   runApp(const MyApp());
@@ -93,6 +95,20 @@ class _MyAppState extends State<MyApp> {
                       username: 'Guest',
                     ),
               ),
+      routes: {
+        // ...other routes...
+        '/chat': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map? ?? {};
+          return ChatPage(
+            peerId: args['peerId'] ?? '',
+            peerUsername: args['peerUsername'] ?? '',
+            peerAvatar: args['peerAvatar'],
+            sellerId: args['sellerId'],         // <-- Now valid
+            productName: args['productName'],   // <-- Now valid
+          );
+        },
+        '/checkout': (context) => CheckoutPage(items: []),
+      },
     );
   }
 }

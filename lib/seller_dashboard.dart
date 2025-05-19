@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'add_product_screen.dart';
 import 'manage_products_page.dart';
+import 'manage_orders_page.dart';
 
 class SellerDashboard extends StatefulWidget {
   const SellerDashboard({super.key});
@@ -91,7 +92,10 @@ class _SellerDashboardState extends State<SellerDashboard> {
 
       double revenue = 0.0;
       for (var order in ordersQuery.docs) {
-        revenue += (order.data()['totalAmount'] ?? 0.0);
+        final data = order.data();
+        if (data['status'] == 'COMPLETED' && data['totalAmount'] is num) {
+          revenue += (data['totalAmount'] as num).toDouble();
+        }
       }
 
       setState(() {
@@ -100,7 +104,15 @@ class _SellerDashboardState extends State<SellerDashboard> {
         _totalRevenue = revenue;
       });
     } catch (e) {
-      _showSnackBar('Failed to load dashboard data: $e');
+      print('Error loading dashboard data: $e'); // Log detailed error
+      _showSnackBar('Failed to load dashboard data. Please check permissions.');
+
+      // Set defaults if data loading fails
+      setState(() {
+        _totalProducts = 0;
+        _totalOrders = 0;
+        _totalRevenue = 0.0;
+      });
     }
   }
 
@@ -125,7 +137,17 @@ class _SellerDashboardState extends State<SellerDashboard> {
         );
         break;
       case 'manageOrders':
-        _showSnackBar('Manage Orders functionality coming soon');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => ManageOrdersPage(
+                  sellerId: FirebaseAuth.instance.currentUser!.uid,
+                  primaryColor: _primaryColor,
+                  accentColor: _accentColor,
+                ),
+          ),
+        );
         break;
       case 'storeSettings':
         _showSnackBar('Store Settings functionality coming soon');
@@ -378,7 +400,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Recent Activity',
+                'Recent Orders',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -392,86 +414,147 @@ class _SellerDashboardState extends State<SellerDashboard> {
             ],
           ),
         ),
-        Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          elevation: 2,
-          child:
-              _totalOrders > 0
-                  ? ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _totalOrders > 3 ? 3 : _totalOrders,
-                    separatorBuilder:
-                        (context, index) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: _primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.shopping_bag_outlined,
-                            color: _primaryColor,
-                          ),
-                        ),
-                        title: const Text('Order #12345'),
-                        subtitle: const Text(
-                          'May 19, 2025 • ₱23.99',
-                        ), // Changed $ to ₱
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Text(
-                            'Completed',
-                            style: TextStyle(color: Colors.green, fontSize: 12),
-                          ),
-                        ),
-                        onTap: () => _navigateTo('orderDetails'),
-                      );
-                    },
+        StreamBuilder<QuerySnapshot>(
+          stream:
+              FirebaseFirestore.instance
+                  .collection('orders')
+                  .where(
+                    'sellerId',
+                    isEqualTo: FirebaseAuth.instance.currentUser?.uid,
                   )
-                  : const Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.receipt_long,
+                  .orderBy('createdAt', descending: true)
+                  .limit(3)
+                  .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Text('Error loading orders: ${snapshot.error}'),
+              );
+            }
+
+            final orders = snapshot.data?.docs ?? [];
+
+            if (orders.isEmpty) {
+              return Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 2,
+                child: const Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.receipt_long, color: Colors.grey, size: 48),
+                        SizedBox(height: 12),
+                        Text(
+                          'No recent orders found',
+                          style: TextStyle(
                             color: Colors.grey,
-                            size: 48,
+                            fontWeight: FontWeight.w500,
                           ),
-                          SizedBox(height: 12),
-                          Text(
-                            'No recent orders found',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Your recent orders will appear here',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Your recent orders will appear here',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
                     ),
                   ),
+                ),
+              );
+            }
+
+            return Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 2,
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: orders.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final orderData =
+                      orders[index].data() as Map<String, dynamic>;
+                  final orderId = orders[index].id;
+                  final createdAt =
+                      orderData['createdAt'] as Timestamp? ?? Timestamp.now();
+                  final total = orderData['total'] ?? 0;
+                  final status = orderData['status'] ?? 'Processing';
+
+                  return ListTile(
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.shopping_bag_outlined,
+                        color: _primaryColor,
+                      ),
+                    ),
+                    title: Text('Order #${orderId.substring(0, 6)}'),
+                    subtitle: Text(
+                      '${createdAt.toDate().toString().split(' ')[0]} • ₱${total is num ? total.toStringAsFixed(2) : '0.00'}',
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(status).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          color: _getStatusColor(status),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    onTap: () => _navigateTo('orderDetails'),
+                  );
+                },
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'TO SHIP':
+        return Colors.orange;
+      case 'TO RECEIVE':
+        return Colors.blue;
+      case 'COMPLETED':
+        return Colors.green;
+      case 'CANCELLED':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   Widget _buildTopProductsSection() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -495,69 +578,127 @@ class _SellerDashboardState extends State<SellerDashboard> {
             ],
           ),
         ),
-        Container(
-          height: 160,
-          child:
-              _totalProducts > 0
-                  ? ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _totalProducts > 5 ? 5 : _totalProducts,
-                    itemBuilder: (context, index) {
-                      return Card(
-                        margin: const EdgeInsets.only(right: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                        child: Container(
-                          width: 140,
-                          padding: const EdgeInsets.all(10),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+        SizedBox(
+          height: 180,
+          child: StreamBuilder<QuerySnapshot>(
+            stream:
+                FirebaseFirestore.instance
+                    .collection('products')
+                    .where('sellerId', isEqualTo: user.uid)
+                    .orderBy('sold', descending: true)
+                    .limit(5)
+                    .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error loading products'));
+              }
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Text(
+                      'No products yet. Add your first product!',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                );
+              }
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final data = docs[index].data() as Map<String, dynamic>;
+                  return Card(
+                    margin: const EdgeInsets.only(right: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                    child: Container(
+                      width: 140,
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child:
+                                data['imageUrl'] != null &&
+                                        data['imageUrl'].toString().isNotEmpty
+                                    ? Image.network(
+                                      data['imageUrl'],
+                                      height: 80,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (
+                                        context,
+                                        error,
+                                        stackTrace,
+                                      ) {
+                                        return Container(
+                                          height: 80,
+                                          color: Colors.grey.withOpacity(0.2),
+                                          child: Icon(
+                                            Icons.image,
+                                            color: Colors.grey,
+                                          ),
+                                        );
+                                      },
+                                    )
+                                    : Container(
+                                      height: 80,
+                                      color: Colors.grey.withOpacity(0.2),
+                                      child: Icon(
+                                        Icons.image,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            data['name'] ?? 'Product Name',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '₱${(data['price'] is num) ? (data['price'] as num).toStringAsFixed(2) : data['price'] ?? '0.00'}',
+                            style: TextStyle(
+                              color: _primaryColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
                             children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  height: 80,
-                                  width: double.infinity,
-                                  color: Colors.grey.withOpacity(0.2),
-                                  child: Icon(Icons.image, color: Colors.grey),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
+                              Icon(Icons.star, color: Colors.amber, size: 14),
+                              const SizedBox(width: 2),
                               Text(
-                                'Product Name',
+                                '${data['sold'] ?? 0} sold',
                                 style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '₱199.99',
-                                style: TextStyle(
-                                  color: _primaryColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 11,
+                                  color: Colors.grey[700],
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      );
-                    },
-                  )
-                  : Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text(
-                        'No products yet. Add your first product!',
-                        style: TextStyle(color: Colors.grey),
+                        ],
                       ),
                     ),
-                  ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ],
     );

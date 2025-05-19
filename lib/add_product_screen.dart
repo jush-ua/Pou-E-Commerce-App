@@ -1062,4 +1062,24 @@ class _AddProductScreenState extends State<AddProductScreen> {
       validator: validator,
     );
   }
+
+  List<String> generateKeywords(String name, String category) {
+    final keywords = <String>{};
+    final nameWords = name.toLowerCase().split(' ');
+    keywords.addAll(nameWords);
+    keywords.add(name.toLowerCase());
+    keywords.add(category.toLowerCase());
+    // Add more logic for synonyms if needed
+    return keywords.toList();
+  }
+
+  // Example usage when adding a product:
+  // await FirebaseFirestore.instance.collection('products').add({
+  //   'name': 'Bluetooth Speaker',
+  //   'category': 'Audio',
+  //   'price': 49.99,
+  //   'imageUrl': '...',
+  //   // ...other fields...
+  //   'keywords': generateKeywords('Bluetooth Speaker', 'Audio'),
+  // });
 }

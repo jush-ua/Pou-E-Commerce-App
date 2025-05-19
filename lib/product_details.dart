@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'edit_product_page.dart';
+import 'checkout_page.dart';
+import 'cart.dart';
 
 class ProductDetails extends StatefulWidget {
   final String productName;
@@ -720,6 +723,8 @@ class _ProductDetailsState extends State<ProductDetails> {
         child: Row(
           children: [
             if (!_isSeller) ...[
+              // Chat with seller button removed
+              const SizedBox(width: 0), // Optionally keep spacing
               Expanded(
                 child: OutlinedButton(
                   onPressed: _addToCart,
@@ -739,11 +744,34 @@ class _ProductDetailsState extends State<ProductDetails> {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Buy now logic
+                  onPressed: () async {
+                    // Buy now logic: add to cart, then go to checkout
+                    await _addToCart();
+                    if (mounted) {
+                      // Create a CartItem for this product
+                      final cartItem = CartItem(
+                        id: '${widget.productName}_${_selectedSize ?? "One Size"}',
+                        name: widget.productName,
+                        price:
+                            double.tryParse(
+                              widget.productPrice.replaceAll('₱', ''),
+                            ) ??
+                            0.0,
+                        imageUrl: widget.imageUrl,
+                        quantity: 1,
+                        sellerId:
+                            '', // You may want to fetch the sellerId if needed
+                      );
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CheckoutPage(items: [cartItem]),
+                        ),
+                      );
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
@@ -754,6 +782,57 @@ class _ProductDetailsState extends State<ProductDetails> {
                   ),
                   child: const Text(
                     'Buy Now',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (_isSeller) ...[
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    // Navigate to edit product page
+                    // Fetch productId from Firestore
+                    final productSnap =
+                        await FirebaseFirestore.instance
+                            .collection('products')
+                            .where('name', isEqualTo: widget.productName)
+                            .limit(1)
+                            .get();
+                    if (productSnap.docs.isNotEmpty) {
+                      final productId = productSnap.docs.first.id;
+                      final productData = productSnap.docs.first.data();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => EditProductPage(
+                                productId: productId,
+                                productData: productData,
+                              ),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Product not found."),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Edit Product',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
