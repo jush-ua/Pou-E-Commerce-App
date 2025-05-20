@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
 class PurchaseHistoryPage extends StatefulWidget {
   final String initialTab; // e.g. 'TO SHIP', 'TO RECEIVE', etc.
@@ -11,16 +12,27 @@ class PurchaseHistoryPage extends StatefulWidget {
   State<PurchaseHistoryPage> createState() => _PurchaseHistoryPageState();
 }
 
-class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTickerProviderStateMixin {
+class _PurchaseHistoryPageState extends State<PurchaseHistoryPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<String> _tabs = ['TO SHIP', 'TO RECEIVE', 'COMPLETED', 'TO RATE'];
+  final List<String> _tabs = [
+    'PENDING',
+    'TO SHIP',
+    'TO RECEIVE',
+    'COMPLETED',
+    'TO RATE',
+  ];
   final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
 
   @override
   void initState() {
     super.initState();
     int initialIndex = _tabs.indexOf(widget.initialTab);
-    _tabController = TabController(length: _tabs.length, vsync: this, initialIndex: initialIndex >= 0 ? initialIndex : 0);
+    _tabController = TabController(
+      length: _tabs.length,
+      vsync: this,
+      initialIndex: initialIndex >= 0 ? initialIndex : 0,
+    );
   }
 
   @override
@@ -34,17 +46,39 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
     if (user == null) {
       return const Stream.empty();
     }
-    // Adjust the field names and collection as per your Firestore structure
+    // Map UI tab status to Firestore status
+    String firestoreStatus;
+    switch (status) {
+      case 'PENDING':
+        firestoreStatus = 'pending';
+        break;
+      case 'TO SHIP':
+        firestoreStatus = 'to_ship';
+        break;
+      case 'TO RECEIVE':
+        firestoreStatus = 'to_receive';
+        break;
+      case 'COMPLETED':
+        firestoreStatus = 'completed';
+        break;
+      case 'TO RATE':
+        firestoreStatus = 'to_rate';
+        break;
+      default:
+        firestoreStatus = status.toLowerCase();
+    }
     return FirebaseFirestore.instance
         .collection('orders')
-        .where('userId', isEqualTo: user.uid)
-        .where('status', isEqualTo: status)
-        .orderBy('createdAt', descending: true)
+        .where('buyerId', isEqualTo: user.uid)
+        .where('status', isEqualTo: firestoreStatus)
+        .orderBy('timestamp', descending: true)
         .snapshots();
   }
 
   Color _getStatusColor(String status) {
     switch (status) {
+      case 'PENDING':
+        return Colors.deepPurple;
       case 'TO SHIP':
         return Colors.orange;
       case 'TO RECEIVE':
@@ -61,8 +95,12 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
   Widget _buildEmptyState(String status) {
     IconData icon;
     String message;
-    
+
     switch (status) {
+      case 'PENDING':
+        icon = Icons.hourglass_empty;
+        message = 'No pending orders';
+        break;
       case 'TO SHIP':
         icon = Icons.inventory_2;
         message = 'No orders waiting to be shipped';
@@ -133,11 +171,11 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
             child: CircularProgressIndicator(color: Color(0xFFD18050)),
           );
         }
-        
+
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return _buildEmptyState(status);
         }
-        
+
         final orders = snapshot.data!.docs;
         return ListView.builder(
           padding: const EdgeInsets.all(12),
@@ -145,21 +183,30 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
           itemBuilder: (context, index) {
             final order = orders[index].data() as Map<String, dynamic>;
             final items = List<Map<String, dynamic>>.from(order['items'] ?? []);
-            final orderDate = order['createdAt'] as Timestamp? ?? Timestamp.now();
+            final orderDate =
+                order['timestamp'] as Timestamp? ?? Timestamp.now();
             final total = order['total'] ?? 0;
-            final formattedTotal = total is num ? currencyFormat.format(total) : '₹0';
+            final formattedTotal =
+                total is num ? currencyFormat.format(total) : '₹0';
             final orderId = orders[index].id;
-            
+
+            print(order['status']);
+
             return Card(
               margin: const EdgeInsets.only(bottom: 16),
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Order header with ID and date
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
                       borderRadius: const BorderRadius.only(
@@ -169,7 +216,11 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.receipt_long, size: 18, color: Color(0xFFD18050)),
+                        const Icon(
+                          Icons.receipt_long,
+                          size: 18,
+                          color: Color(0xFFD18050),
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -178,7 +229,10 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: _getStatusColor(status).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(16),
@@ -196,7 +250,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                       ],
                     ),
                   ),
-                  
+
                   // Order items list
                   ListView.builder(
                     physics: const NeverScrollableScrollPhysics(),
@@ -205,32 +259,43 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                     itemBuilder: (context, idx) {
                       final item = items[idx];
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         child: Row(
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: item['imageUrl'] != null && item['imageUrl'].toString().isNotEmpty
-                                  ? Image.network(
-                                      item['imageUrl'],
-                                      width: 60,
-                                      height: 60,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          width: 60,
-                                          height: 60,
-                                          color: Colors.grey[200],
-                                          child: const Icon(Icons.image_not_supported),
-                                        );
-                                      },
-                                    )
-                                  : Container(
-                                      width: 60,
-                                      height: 60,
-                                      color: Colors.grey[200],
-                                      child: const Icon(Icons.shopping_bag),
-                                    ),
+                              child:
+                                  item['imageUrl'] != null &&
+                                          item['imageUrl'].toString().isNotEmpty
+                                      ? Image.network(
+                                        item['imageUrl'],
+                                        width: 60,
+                                        height: 60,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return Container(
+                                            width: 60,
+                                            height: 60,
+                                            color: Colors.grey[200],
+                                            child: const Icon(
+                                              Icons.image_not_supported,
+                                            ),
+                                          );
+                                        },
+                                      )
+                                      : Container(
+                                        width: 60,
+                                        height: 60,
+                                        color: Colors.grey[200],
+                                        child: const Icon(Icons.shopping_bag),
+                                      ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -239,14 +304,19 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                                 children: [
                                   Text(
                                     item['name'] ?? 'Product Name',
-                                    style: const TextStyle(fontWeight: FontWeight.w500),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     'Qty: ${item['quantity'] ?? 1} × ${item['price'] != null ? currencyFormat.format(item['price']) : '₹0'}',
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 13,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -256,19 +326,22 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                       );
                     },
                   ),
-                  
+
                   // Show more items if there are more than 3
                   if (items.length > 3)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                       child: Text(
                         '+ ${items.length - 3} more items',
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       ),
                     ),
-                  
+
                   const Divider(),
-                  
+
                   // Order total and date
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -306,7 +379,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                       ],
                     ),
                   ),
-                  
+
                   // Action buttons based on status
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -325,12 +398,16 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.grey[700],
                               side: BorderSide(color: Colors.grey[400]!),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                             onPressed: () {
                               // Cancel order functionality
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Cancellation request sent')),
+                                const SnackBar(
+                                  content: Text('Cancellation request sent'),
+                                ),
                               );
                             },
                             child: const Text('Cancel Order'),
@@ -340,12 +417,18 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.grey[700],
                               side: BorderSide(color: Colors.grey[400]!),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                             onPressed: () {
                               // Track order functionality
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Tracking information not available')),
+                                const SnackBar(
+                                  content: Text(
+                                    'Tracking information not available',
+                                  ),
+                                ),
                               );
                             },
                             child: const Text('Track Package'),
@@ -355,12 +438,16 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFD18050),
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                             onPressed: () {
                               // Rate product functionality
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Rating feature coming soon')),
+                                const SnackBar(
+                                  content: Text('Rating feature coming soon'),
+                                ),
                               );
                             },
                             child: const Text('Rate Product'),
@@ -370,12 +457,16 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFD18050),
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                             onPressed: () {
                               // Buy again functionality
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Adding items to cart')),
+                                const SnackBar(
+                                  content: Text('Adding items to cart'),
+                                ),
                               );
                             },
                             child: const Text('Buy Again'),
@@ -385,12 +476,16 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFD18050),
                             side: const BorderSide(color: Color(0xFFD18050)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           onPressed: () {
                             // View details functionality
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Order details coming soon')),
+                              const SnackBar(
+                                content: Text('Order details coming soon'),
+                              ),
                             );
                           },
                           child: const Text('View Details'),
@@ -417,59 +512,70 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> with SingleTi
         ),
         backgroundColor: const Color(0xFFD18050),
         elevation: 0,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+        ),
       ),
-      body: Column(
-        children: [
-          Container(
-            color: const Color(0xFFD18050),
-            child: TabBar(
-              controller: _tabController,
-              tabs: _tabs.map((tab) {
-                String label;
-                IconData icon;
-                
-                switch(tab) {
-                  case 'TO SHIP':
-                    label = 'To Ship';
-                    icon = Icons.inventory_2;
-                    break;
-                  case 'TO RECEIVE':
-                    label = 'To Receive';
-                    icon = Icons.local_shipping;
-                    break;
-                  case 'COMPLETED':
-                    label = 'Completed';
-                    icon = Icons.check_circle;
-                    break;
-                  case 'TO RATE':
-                    label = 'To Rate';
-                    icon = Icons.star_border;
-                    break;
-                  default:
-                    label = tab;
-                    icon = Icons.shopping_bag;
-                }
-                
-                return Tab(
-                  icon: Icon(icon, size: 20),
-                  text: label,
-                );
-              }).toList(),
-              indicatorColor: Colors.white,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white.withOpacity(0.7),
-              indicatorWeight: 3,
-              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              unselectedLabelStyle: const TextStyle(fontSize: 12),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              color: const Color(0xFFD18050),
+              child: TabBar(
+                controller: _tabController,
+                tabs:
+                    _tabs.map((tab) {
+                      String label;
+                      IconData icon;
+
+                      switch (tab) {
+                        case 'PENDING':
+                          label = 'Pending';
+                          icon = Icons.hourglass_empty;
+                          break;
+                        case 'TO SHIP':
+                          label = 'To Ship';
+                          icon = Icons.inventory_2;
+                          break;
+                        case 'TO RECEIVE':
+                          label = 'To Receive';
+                          icon = Icons.local_shipping;
+                          break;
+                        case 'COMPLETED':
+                          label = 'Completed';
+                          icon = Icons.check_circle;
+                          break;
+                        case 'TO RATE':
+                          label = 'To Rate';
+                          icon = Icons.star_border;
+                          break;
+                        default:
+                          label = tab;
+                          icon = Icons.shopping_bag;
+                      }
+
+                      return Tab(icon: Icon(icon, size: 20), text: label);
+                    }).toList(),
+                indicatorColor: Colors.white,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white.withOpacity(0.7),
+                indicatorWeight: 3,
+                labelStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+                unselectedLabelStyle: const TextStyle(fontSize: 12),
+              ),
             ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: _tabs.map((tab) => _buildOrderList(tab)).toList(),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: _tabs.map((tab) => _buildOrderList(tab)).toList(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

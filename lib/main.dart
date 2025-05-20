@@ -12,6 +12,7 @@ import 'chat.dart'; // Import the ChatPage widget
 import 'chatlist.dart'; // Import the ChatPage widget
 import 'chatlist.dart'; // Import the ChatUserListPage widget
 import 'checkout_page.dart'; // Import the CheckoutPage widget
+import 'package:flutter/services.dart'; // Import services for system UI
 
 void main() {
   runApp(const MyApp());
@@ -54,6 +55,14 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Apply system UI style
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ));
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Pou Shop',
@@ -184,19 +193,23 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         preferredSize: const Size.fromHeight(60),
         child: CustomAppBar(),
       ),
-      body: FadeTransition(
-        opacity: _animationController,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.02, 0),
-            end: Offset.zero,
-          ).animate(
-            CurvedAnimation(
-              parent: _animationController,
-              curve: Curves.easeOutCubic,
+      body: SafeArea(
+        // Wrap body with SafeArea
+        bottom: false, // Don't add bottom padding since we handle it in bottomNavigationBar
+        child: FadeTransition(
+          opacity: _animationController,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.02, 0),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(
+                parent: _animationController,
+                curve: Curves.easeOutCubic,
+              ),
             ),
+            child: _pages[_selectedIndex],
           ),
-          child: _pages[_selectedIndex],
         ),
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
@@ -226,9 +239,11 @@ class CustomAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
+    final topPadding = MediaQuery.of(context).padding.top;
 
     return Container(
-      height: screenWidth * 0.15, // Adjust height based on screen width
+      padding: EdgeInsets.only(top: topPadding), // Add status bar padding
+      height: 60 + topPadding, // Add status bar height to app bar height
       decoration: const BoxDecoration(
         color: Color(0xFFE47F43), // Orange color
         boxShadow: [
@@ -282,12 +297,11 @@ class CustomBottomNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
 
     return Container(
-      height: screenWidth * 0.18, // Increased height to avoid overflow
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewPadding.bottom,
-      ), // Add padding for safe area
+      height: (screenWidth * 0.18) + bottomPadding, // Add bottom padding to height
+      padding: EdgeInsets.only(bottom: bottomPadding), // Add padding for safe area
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [

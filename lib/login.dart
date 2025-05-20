@@ -290,12 +290,17 @@ class _LoginModalState extends State<LoginModal>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Google Sign-In failed: ${e is FirebaseAuthException ? e.message : e.toString()}'),
+            content: Text(
+              'Google Sign-In failed: ${e is FirebaseAuthException ? e.message : e.toString()}',
+            ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.of(context).pop(); // Pop after showing the SnackBar
+        // Only pop after a delay, so the SnackBar can show
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) Navigator.of(context).pop();
+        });
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -723,9 +728,10 @@ class _LoginModalState extends State<LoginModal>
         ),
         boxShadow: [
           BoxShadow(
-            color: isFocused
-                ? const Color(0xFFD18050).withOpacity(0.1)
-                : Colors.black.withOpacity(0.03),
+            color:
+                isFocused
+                    ? const Color(0xFFD18050).withOpacity(0.1)
+                    : Colors.black.withOpacity(0.03),
             blurRadius: 8,
             spreadRadius: isFocused ? 2 : 1,
           ),
@@ -741,15 +747,8 @@ class _LoginModalState extends State<LoginModal>
           contentPadding: const EdgeInsets.fromLTRB(0, 16, 16, 16),
           border: InputBorder.none,
           labelText: labelText,
-          labelStyle: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 15,
-          ),
-          prefixIcon: Icon(
-            icon,
-            color: const Color(0xFFD18050),
-            size: 22,
-          ),
+          labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+          prefixIcon: Icon(icon, color: const Color(0xFFD18050), size: 22),
           prefixIconConstraints: const BoxConstraints(
             minWidth: 48,
             maxWidth: 48,

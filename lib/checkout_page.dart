@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/services.dart';
 import 'cart.dart';
 import 'addresses_page.dart';
 
@@ -236,9 +237,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
         title: const Text('Checkout'),
         backgroundColor: _primaryColor,
         foregroundColor: Colors.white,
+        elevation: 0,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+        ),
       ),
-      body: _isProcessing ? _buildProcessingState() : _buildCheckoutStepper(),
-      bottomNavigationBar: _isProcessing ? null : _buildBottomBar(),
+      body: SafeArea(
+        child:
+            _isProcessing ? _buildProcessingState() : _buildCheckoutStepper(),
+      ),
+      bottomNavigationBar:
+          _isProcessing ? null : SafeArea(top: false, child: _buildBottomBar()),
     );
   }
 

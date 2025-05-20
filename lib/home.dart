@@ -45,7 +45,7 @@ class _HomePageState extends State<HomePage> {
               .limit(_limit)
               .get();
 
-      // Fetch featured products (products marked as featured or top 3 by price)
+      // Fetch featured products (products marked as featured or top 3 newest)
       final featuredQuery =
           await FirebaseFirestore.instance
               .collection('products')
@@ -67,6 +67,8 @@ class _HomePageState extends State<HomePage> {
             topProducts.docs.map((doc) {
               Map<String, dynamic> data = doc.data();
               data['id'] = doc.id; // Include document ID
+              // Ensure soldCount exists (default to 0)
+              data['soldCount'] = data['soldCount'] ?? 0;
               return data;
             }).toList();
       } else {
@@ -74,22 +76,23 @@ class _HomePageState extends State<HomePage> {
             featuredQuery.docs.map((doc) {
               Map<String, dynamic> data = doc.data();
               data['id'] = doc.id; // Include document ID
+              // Ensure soldCount exists (default to 0)
+              data['soldCount'] = data['soldCount'] ?? 0;
               return data;
             }).toList();
       }
 
-      // Fetch best sellers (products with highest soldCount)
-      final bestSellersQuery =
+      // For best sellers, first try to get products with soldCount > 0
+      var bestSellersQuery =
           await FirebaseFirestore.instance
               .collection('products')
               .orderBy('soldCount', descending: true)
               .limit(6)
               .get();
 
-      // If no products have soldCount or the result is empty,
-      // fall back to newest products (same as featured but with more items)
+      // If we don't have enough products with soldCount, just get the newest products
       List<Map<String, dynamic>> bestSellers = [];
-      if (bestSellersQuery.docs.isEmpty) {
+      if (bestSellersQuery.docs.length < 6) {
         final newestProducts =
             await FirebaseFirestore.instance
                 .collection('products')
@@ -101,6 +104,8 @@ class _HomePageState extends State<HomePage> {
             newestProducts.docs.map((doc) {
               Map<String, dynamic> data = doc.data();
               data['id'] = doc.id; // Include document ID
+              // Ensure soldCount exists (default to 0)
+              data['soldCount'] = data['soldCount'] ?? 0;
               return data;
             }).toList();
       } else {
@@ -108,6 +113,8 @@ class _HomePageState extends State<HomePage> {
             bestSellersQuery.docs.map((doc) {
               Map<String, dynamic> data = doc.data();
               data['id'] = doc.id; // Include document ID
+              // Ensure soldCount exists (default to 0)
+              data['soldCount'] = data['soldCount'] ?? 0;
               return data;
             }).toList();
       }
@@ -118,13 +125,13 @@ class _HomePageState extends State<HomePage> {
               querySnapshot.docs.map((doc) {
                 Map<String, dynamic> data = doc.data();
                 data['id'] = doc.id; // Include document ID
+                // Ensure soldCount exists (default to 0)
+                data['soldCount'] = data['soldCount'] ?? 0;
                 return data;
               }).toList();
 
           _featuredProducts = featured;
-
-          _bestSellerProducts = bestSellers; // Use the fallback data
-
+          _bestSellerProducts = bestSellers;
           _isLoading = false;
         });
       }
@@ -200,89 +207,18 @@ class _HomePageState extends State<HomePage> {
       home: Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(
-          child:
-              _isLoading
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(), // Show a loading indicator
+                )
+              : _products.isEmpty
                   ? const Center(
-                    child:
-                        CircularProgressIndicator(), // Show a loading indicator
-                  )
-                  : _products.isEmpty
-                  ? const Center(
-                    child: Text(
-                      'No products available.',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  )
-                  : SingleChildScrollView(
-                    controller: _scrollController,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            'All Products',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 0.8,
-                              ),
-                          itemCount: _products.length,
-                          itemBuilder: (context, index) {
-                            final product = _products[index];
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => ProductDetails(
-                                          productName:
-                                              product['name'] ??
-                                              'Unknown Product',
-                                          productPrice:
-                                              '₱${product['price']?.toStringAsFixed(2) ?? '0.00'}',
-                                          productDescription:
-                                              product['description'] ??
-                                              'No description available',
-                                          imageUrl: product['imageUrl'] ?? '',
-                                          soldCount:
-                                              product['soldCount']
-                                                  ?.toString() ??
-                                              '0',
-                                          category:
-                                              product['category'] ??
-                                              'Unknown Category', // Pass category
-                                          subcategory:
-                                              product['subcategory'] ??
-                                              'Unknown Subcategory', // Pass subcategory
-                                        ),
-                                  ),
-                                );
-                              },
-                              child: _buildEnhancedProductCard(
-                                product['name'] ?? 'Unknown Product',
-                                Icons.shopping_bag,
-                                '₱${product['price']?.toStringAsFixed(2) ?? '0.00'}',
-                                'Sold: ${product['soldCount'] ?? '0'}',
-                                product['imageUrl'] ?? '',
-                                product,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                      child: Text(
+                        'No products available.',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    )
+                  : _buildCollapsedContent(), // Use the collapsed content here instead
         ),
       ),
     );
