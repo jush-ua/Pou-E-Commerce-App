@@ -8,6 +8,7 @@ import 'edit_profile.dart'; // Import the EditProfilePage here
 import 'wishlist_page.dart'; // Import your WishlistPage here
 import 'purchase_history_page.dart'; // <-- Add this import
 import 'addresses_page.dart';
+import 'about_us_page.dart';
 
 class ProfilePage extends StatelessWidget {
   final String username;
@@ -707,8 +708,15 @@ class ProfilePage extends StatelessWidget {
                         Expanded(
                           child: _buildActionButton(
                             icon: Icons.info_outline,
-                            label: 'Help Center',
-                            // Everyone can access help center
+                            label: 'About Us',
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const AboutUsPage(),
+                                ),
+                              );
+                            },
                           ),
                         ),
                         const SizedBox(width: 16),
