@@ -7,7 +7,7 @@ class ChatPage extends StatefulWidget {
   final String peerId;
   final String peerUsername;
   final String? peerAvatar; // Optional peer avatar URL
-  final String? sellerId;   // <-- Add this
+  final String? sellerId; // <-- Add this
   final String? productName; // <-- Add this
 
   const ChatPage({
@@ -15,8 +15,8 @@ class ChatPage extends StatefulWidget {
     required this.peerId,
     required this.peerUsername,
     this.peerAvatar,
-    this.sellerId,      // <-- Add this
-    this.productName,   // <-- Add this
+    this.sellerId, // <-- Add this
+    this.productName, // <-- Add this
   });
 
   @override
@@ -58,16 +58,26 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _markMessagesAsRead() async {
     try {
       final batch = _firestore.batch();
-      final messagesQuery = await _firestore
-          .collection('chats')
-          .doc(chatId)
-          .collection('messages')
-          .where('receiverId', isEqualTo: _currentUserId)
-          .where('read', isEqualTo: false)
-          .get();
+      final messagesQuery =
+          await _firestore
+              .collection('chats')
+              .doc(chatId)
+              .collection('messages')
+              .where('receiverId', isEqualTo: _currentUserId)
+              .where('read', isEqualTo: false)
+              .get();
+
+      int unreadCount = messagesQuery.docs.length;
 
       for (final doc in messagesQuery.docs) {
         batch.update(doc.reference, {'read': true});
+      }
+
+      // Update unread count in chat_meta for this user
+      if (unreadCount > 0) {
+        batch.update(_firestore.collection('chat_meta').doc(chatId), {
+          'unreadCount_$_currentUserId': 0,
+        });
       }
 
       await batch.commit();
@@ -98,12 +108,14 @@ class _ChatPageState extends State<ChatPage> {
             'read': false,
           });
 
-      // Also update the chat metadata in a separate collection
+      // Atomically increment unread count for receiver
       await _firestore.collection('chat_meta').doc(chatId).set({
         'lastMessage': text,
         'lastMessageTime': FieldValue.serverTimestamp(),
-        'participants': [_currentUserId, widget.peerId],
+        'participants': [_currentUserId, widget.peerId]
+          ..sort(), // Always sorted!
         'lastSenderId': _currentUserId,
+        'unreadCount_${widget.peerId}': FieldValue.increment(1),
       }, SetOptions(merge: true));
 
       _controller.clear();
@@ -117,9 +129,9 @@ class _ChatPageState extends State<ChatPage> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error sending message: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error sending message: $e')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -132,9 +144,10 @@ class _ChatPageState extends State<ChatPage> {
     final isMe = data['senderId'] == _currentUserId;
     final text = data['text'] as String? ?? '';
     final timestamp = data['timestamp'] as Timestamp?;
-    final time = timestamp != null
-        ? DateFormat('h:mm a').format(timestamp.toDate())
-        : '';
+    final time =
+        timestamp != null
+            ? DateFormat('h:mm a').format(timestamp.toDate())
+            : '';
     final isRead = data['read'] as bool? ?? false;
 
     return Align(
@@ -146,9 +159,10 @@ class _ChatPageState extends State<ChatPage> {
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
-          color: isMe
-              ? const Color(0xFFD18050) // Your app's orange
-              : Colors.grey[200], // Light grey for received messages
+          color:
+              isMe
+                  ? const Color(0xFFD18050) // Your app's orange
+                  : Colors.grey[200], // Light grey for received messages
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -182,11 +196,12 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                 ),
                 if (isMe) const SizedBox(width: 4),
-                if (isMe) Icon(
-                  isRead ? Icons.done_all : Icons.done,
-                  size: 12,
-                  color: Colors.white70,
-                ),
+                if (isMe)
+                  Icon(
+                    isRead ? Icons.done_all : Icons.done,
+                    size: 12,
+                    color: Colors.white70,
+                  ),
               ],
             ),
           ],
@@ -206,10 +221,7 @@ class _ChatPageState extends State<ChatPage> {
         ),
         child: Text(
           date,
-          style: TextStyle(
-            color: Colors.grey[700],
-            fontSize: 12,
-          ),
+          style: TextStyle(color: Colors.grey[700], fontSize: 12),
         ),
       ),
     );
@@ -226,17 +238,19 @@ class _ChatPageState extends State<ChatPage> {
             CircleAvatar(
               backgroundColor: Colors.grey[300],
               radius: 18,
-              backgroundImage: widget.peerAvatar != null
-                  ? NetworkImage(widget.peerAvatar!)
-                  : null,
-              child: widget.peerAvatar == null
-                  ? Text(
-                      widget.peerUsername.isNotEmpty
-                          ? widget.peerUsername[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    )
-                  : null,
+              backgroundImage:
+                  widget.peerAvatar != null
+                      ? NetworkImage(widget.peerAvatar!)
+                      : null,
+              child:
+                  widget.peerAvatar == null
+                      ? Text(
+                        widget.peerUsername.isNotEmpty
+                            ? widget.peerUsername[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      )
+                      : null,
             ),
             const SizedBox(width: 10),
             Column(
@@ -251,25 +265,24 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                 ),
                 StreamBuilder<QuerySnapshot>(
-                  stream: _firestore
-                      .collection('user_status')
-                      .where('userId', isEqualTo: widget.peerId)
-                      .limit(1)
-                      .snapshots(),
+                  stream:
+                      _firestore
+                          .collection('user_status')
+                          .where('userId', isEqualTo: widget.peerId)
+                          .limit(1)
+                          .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                      final data = snapshot.data!.docs.first.data()
-                          as Map<String, dynamic>;
+                      final data =
+                          snapshot.data!.docs.first.data()
+                              as Map<String, dynamic>;
                       final isOnline = data['isOnline'] as bool? ?? false;
                       final lastSeen = data['lastSeen'] as Timestamp?;
 
                       if (isOnline) {
                         return const Text(
                           'Online',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white70,
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.white70),
                         );
                       } else if (lastSeen != null) {
                         return Text(
@@ -295,27 +308,28 @@ class _ChatPageState extends State<ChatPage> {
               // Show options menu (e.g., block user, clear chat)
               showModalBottomSheet(
                 context: context,
-                builder: (context) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.delete),
-                      title: const Text('Clear chat'),
-                      onTap: () {
-                        // Implement clear chat functionality
-                        Navigator.pop(context);
-                      },
+                builder:
+                    (context) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.delete),
+                          title: const Text('Clear chat'),
+                          onTap: () {
+                            // Implement clear chat functionality
+                            Navigator.pop(context);
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.block),
+                          title: const Text('Block user'),
+                          onTap: () {
+                            // Implement block user functionality
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.block),
-                      title: const Text('Block user'),
-                      onTap: () {
-                        // Implement block user functionality
-                        Navigator.pop(context);
-                      },
-                    ),
-                  ],
-                ),
               );
             },
           ),
@@ -326,26 +340,25 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore
-                    .collection('chats')
-                    .doc(chatId)
-                    .collection('messages')
-                    .orderBy('timestamp', descending: true)
-                    .limit(100) // Limit for performance
-                    .snapshots(),
+                stream:
+                    _firestore
+                        .collection('chats')
+                        .doc(chatId)
+                        .collection('messages')
+                        .orderBy('timestamp', descending: true)
+                        .limit(100) // Limit for performance
+                        .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                       child: CircularProgressIndicator(
                         color: Color(0xFFD18050),
-                      )
+                      ),
                     );
                   }
 
                   if (snapshot.hasError) {
-                    return Center(
-                      child: Text('Error: ${snapshot.error}'),
-                    );
+                    return Center(child: Text('Error: ${snapshot.error}'));
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -353,7 +366,11 @@ class _ChatPageState extends State<ChatPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.message, size: 64, color: Colors.grey[400]),
+                          Icon(
+                            Icons.message,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             'No messages yet',
@@ -386,8 +403,10 @@ class _ChatPageState extends State<ChatPage> {
                     itemBuilder: (context, index) {
                       // Add date separators
                       final currentDoc = docs[index];
-                      final currentData = currentDoc.data() as Map<String, dynamic>;
-                      final currentTimestamp = currentData['timestamp'] as Timestamp?;
+                      final currentData =
+                          currentDoc.data() as Map<String, dynamic>;
+                      final currentTimestamp =
+                          currentData['timestamp'] as Timestamp?;
 
                       // Only add a date separator if we have a timestamp and if it's
                       // different from the next message's date
@@ -411,8 +430,10 @@ class _ChatPageState extends State<ChatPage> {
                           );
                         } else {
                           final nextDoc = docs[index + 1];
-                          final nextData = nextDoc.data() as Map<String, dynamic>;
-                          final nextTimestamp = nextData['timestamp'] as Timestamp?;
+                          final nextData =
+                              nextDoc.data() as Map<String, dynamic>;
+                          final nextTimestamp =
+                              nextData['timestamp'] as Timestamp?;
 
                           if (nextTimestamp != null) {
                             final nextDate = DateTime(
@@ -425,7 +446,9 @@ class _ChatPageState extends State<ChatPage> {
                               return Column(
                                 children: [
                                   _buildDateSeparator(
-                                    _formatMessageDate(currentTimestamp.toDate()),
+                                    _formatMessageDate(
+                                      currentTimestamp.toDate(),
+                                    ),
                                   ),
                                   _buildMessageItem(currentDoc),
                                 ],
@@ -496,23 +519,26 @@ class _ChatPageState extends State<ChatPage> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: _isComposing
-                          ? const Color(0xFFD18050)
-                          : Colors.grey[300],
+                      color:
+                          _isComposing
+                              ? const Color(0xFFD18050)
+                              : Colors.grey[300],
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Icon(Icons.send, color: Colors.white),
-                      onPressed: _isComposing && !_isLoading ? _sendMessage : null,
+                      icon:
+                          _isLoading
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Icon(Icons.send, color: Colors.white),
+                      onPressed:
+                          _isComposing && !_isLoading ? _sendMessage : null,
                     ),
                   ),
                 ],
