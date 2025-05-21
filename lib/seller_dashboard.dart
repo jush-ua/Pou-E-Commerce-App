@@ -93,8 +93,12 @@ class _SellerDashboardState extends State<SellerDashboard> {
       double revenue = 0.0;
       for (var order in ordersQuery.docs) {
         final data = order.data();
-        if (data['status'] == 'COMPLETED' && data['totalAmount'] is num) {
-          revenue += (data['totalAmount'] as num).toDouble();
+        if (data['status'] == 'COMPLETED') {
+          // Use totalAmount if available, otherwise fallback to total
+          num? amount = data['totalAmount'] ?? data['total'];
+          if (amount is num) {
+            revenue += amount.toDouble();
+          }
         }
       }
 

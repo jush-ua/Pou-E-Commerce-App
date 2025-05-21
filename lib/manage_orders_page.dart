@@ -134,9 +134,7 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
   ) {
     final formattedDate =
         order['createdAt'] != null
-            ? DateFormat(
-              'MMM dd, yyyy',
-            ).format((order['createdAt'] as Timestamp).toDate())
+            ? DateFormat('MMM dd, yyyy').format((order['createdAt'] as Timestamp).toDate())
             : 'N/A';
 
     final nextAction =
@@ -155,14 +153,17 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header with order ID and status badge
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Order #${order['orderId'] ?? doc.id.substring(0, 6)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                Expanded(
+                  child: Text(
+                    'Order #${order['orderId'] ?? doc.id.substring(0, 6)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 _buildStatusBadge(status),
@@ -170,18 +171,31 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
             ),
             const SizedBox(height: 12),
 
-            // Order info
-            Row(
+            // Customer and date info - Make this wrap when needed
+            Wrap(
+              spacing: 12,
               children: [
-                const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(formattedDate, style: TextStyle(color: Colors.grey[600])),
-                const SizedBox(width: 12),
-                const Icon(Icons.person_outline, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  order['buyerName'] ?? 'Customer',
-                  style: TextStyle(color: Colors.grey[600]),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(formattedDate, style: TextStyle(color: Colors.grey[600])),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        order['buyerName'] ?? 'Customer',
+                        style: TextStyle(color: Colors.grey[600]),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -190,11 +204,13 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
 
             // Order total
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Total (${order['itemCount'] ?? 1} ${(order['itemCount'] ?? 1) > 1 ? 'items' : 'item'})',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Text(
+                    'Total (${order['itemCount'] ?? 1} ${(order['itemCount'] ?? 1) > 1 ? 'items' : 'item'})',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 Text(
                   '₱${order['total']?.toStringAsFixed(2) ?? '0.00'}',
@@ -209,30 +225,44 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
 
             const SizedBox(height: 16),
 
-            // Action buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => _showOrderDetails(doc, order),
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: const Text('View Details'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: widget.accentColor,
-                    side: BorderSide(color: widget.accentColor),
-                  ),
-                ),
-                if (nextAction != null)
+            // Action buttons - stacked vertically to prevent overflow
+            if (nextAction != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   ElevatedButton(
                     onPressed: () => _updateOrderStatus(doc, status),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: widget.primaryColor,
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: Text(nextAction),
                   ),
-              ],
-            ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _showOrderDetails(doc, order),
+                    icon: const Icon(Icons.visibility_outlined, size: 18),
+                    label: const Text('View Details'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: widget.accentColor,
+                      side: BorderSide(color: widget.accentColor),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ],
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: () => _showOrderDetails(doc, order),
+                icon: const Icon(Icons.visibility_outlined, size: 18),
+                label: const Text('View Details'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: widget.accentColor,
+                  side: BorderSide(color: widget.accentColor),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
           ],
         ),
       ),
@@ -490,7 +520,6 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
 
   void _updateOrderStatus(DocumentSnapshot doc, String currentStatus) async {
     String newStatus;
-
     switch (currentStatus.toLowerCase()) {
       case 'to ship':
         newStatus = 'to receive';
@@ -507,13 +536,19 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
 
       // Update order in the main collection
       await doc.reference.update({'status': newStatus});
-
-      // Also update in the buyer's collection if possible
       if (order['buyerId'] != null && order['orderId'] != null) {
         await FirebaseFirestore.instance
             .collection('users')
             .doc(order['buyerId'])
             .collection('orders')
+            .doc(order['orderId'])
+            .update({'status': newStatus});
+      }
+      if (order['sellerId'] != null && order['orderId'] != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(order['sellerId'])
+            .collection('sales')
             .doc(order['orderId'])
             .update({'status': newStatus});
       }
@@ -559,9 +594,7 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
     final order = orderDoc.data() as Map<String, dynamic>;
     final formattedDate =
         order['createdAt'] != null
-            ? DateFormat(
-              'MMM dd, yyyy',
-            ).format((order['createdAt'] as Timestamp).toDate())
+            ? DateFormat('MMM dd, yyyy').format((order['createdAt'] as Timestamp).toDate())
             : 'N/A';
 
     return Card(
@@ -573,14 +606,17 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header with order ID and status badge
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Order #${order['orderId'] ?? orderDoc.id.substring(0, 6)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                Expanded(
+                  child: Text(
+                    'Order #${order['orderId'] ?? orderDoc.id.substring(0, 6)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
@@ -606,29 +642,46 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
             ),
             const SizedBox(height: 12),
 
-            Row(
+            // Customer and date info
+            Wrap(
+              spacing: 12,
               children: [
-                const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(formattedDate, style: TextStyle(color: Colors.grey[600])),
-                const SizedBox(width: 12),
-                const Icon(Icons.person_outline, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  order['buyerName'] ?? 'Customer',
-                  style: TextStyle(color: Colors.grey[600]),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(formattedDate, style: TextStyle(color: Colors.grey[600])),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        order['buyerName'] ?? 'Customer',
+                        style: TextStyle(color: Colors.grey[600]),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
 
             const Divider(height: 24),
 
+            // Order total
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Total (${order['itemCount'] ?? 1} ${(order['itemCount'] ?? 1) > 1 ? 'items' : 'item'})',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Text(
+                    'Total (${order['itemCount'] ?? 1} ${(order['itemCount'] ?? 1) > 1 ? 'items' : 'item'})',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 Text(
                   '₱${order['total']?.toStringAsFixed(2) ?? '0.00'}',
@@ -643,29 +696,46 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
 
             const SizedBox(height: 16),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // Action buttons - stacked vertically to prevent overflow
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                OutlinedButton.icon(
-                  onPressed: () => _showOrderDetails(orderDoc, order),
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: const Text('View Details'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: widget.accentColor,
-                    side: BorderSide(color: widget.accentColor),
-                  ),
-                ),
                 ElevatedButton(
                   onPressed: () async {
+                    final buyerId = order['buyerId'];
+                    final sellerId = order['sellerId'];
+                    final orderId = order['orderId'];
+
+                    if (buyerId == null || buyerId.isEmpty ||
+                        sellerId == null || sellerId.isEmpty ||
+                        orderId == null || orderId.isEmpty) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Order data is incomplete. Cannot update status.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
                     try {
+                      // Update in buyer's orders
                       await FirebaseFirestore.instance
                           .collection('users')
-                          .doc(order['buyerId'])
+                          .doc(buyerId)
                           .collection('orders')
-                          .doc(order['orderId'])
+                          .doc(orderId)
                           .update({'status': 'to ship'});
 
                       await orderDoc.reference.update({'status': 'to ship'});
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(sellerId)
+                          .collection('sales')
+                          .doc(orderId)
+                          .update({'status': 'to ship'});
 
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -691,8 +761,20 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   child: const Text('Confirm Order'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _showOrderDetails(orderDoc, order),
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  label: const Text('View Details'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: widget.accentColor,
+                    side: BorderSide(color: widget.accentColor),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ],
             ),

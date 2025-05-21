@@ -46,7 +46,8 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage>
     if (user == null) {
       return const Stream.empty();
     }
-    // Map UI tab status to Firestore status
+      final String userId = user.uid; // This matches your backend's userId
+
     String firestoreStatus;
     switch (status) {
       case 'PENDING':
@@ -69,7 +70,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage>
     }
     return FirebaseFirestore.instance
         .collection('orders')
-        .where('buyerId', isEqualTo: user.uid)
+        .where('buyerId', isEqualTo: userId) // userId matches backend logic
         .where('status', isEqualTo: firestoreStatus)
         .orderBy('timestamp', descending: true)
         .snapshots();
@@ -239,9 +240,9 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage>
                             border: Border.all(color: _getStatusColor(status)),
                           ),
                           child: Text(
-                            status,
+                            (order['status'] ?? status).toString().toUpperCase(),
                             style: TextStyle(
-                              color: _getStatusColor(status),
+                              color: _getStatusColor((order['status'] ?? status).toString().toUpperCase()),
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),

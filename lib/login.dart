@@ -108,52 +108,126 @@ class _LoginModalState extends State<LoginModal>
       );
 
       final user = userCredential.user;
-
-      if (user != null && mounted) {
-        final userData =
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .get();
-
-        final username = userData.data()?['username'] ?? 'Guest';
-
-        Navigator.pop(context);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => MainScreen(
-                  isLimited: false,
-                  initialPageIndex: 4,
-                  username: username,
-                ),
-          ),
+      
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'No user found with this email',
         );
       }
-    } catch (e) {
-      if (mounted) {
-        String errorMessage = 'Login failed';
-        if (e is FirebaseAuthException) {
-          errorMessage =
-              e.code == 'user-not-found'
-                  ? 'No user found with this email'
-                  : e.code == 'wrong-password'
-                  ? 'Incorrect email or password'
-                  : 'Login failed: ${e.message}';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
+      
+      // Fetch the user document from Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+    
+      // If the user document doesn't exist in Firestore, create one
+      if (!userDoc.exists) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'username': user.displayName ?? user.email?.split('@')[0] ?? 'Guest',
+          'email': user.email ?? '',
+          'profile_image_url': user.photoURL ?? '',
+          'role': 'user',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      
+        // Fetch the user document again after creating it
+        final updatedUserDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+          
+      final username = updatedUserDoc.data()?['username'] ?? user.email ?? 'Guest';
+      
+      if (!mounted) return;
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login successful!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      
+      // Navigate to the main screen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => MainScreen(
+            isLimited: false,
+            initialPageIndex: 4,
+            username: username,
           ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+        ),
+      );
+    } else {
+      // User document exists, proceed with normal login
+      final username = userDoc.data()?['username'] ?? user.email ?? 'Guest';
+      
+      if (!mounted) return;
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login successful!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      
+      // Navigate to the main screen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => MainScreen(
+            isLimited: false,
+            initialPageIndex: 4,
+            username: username,
+          ),
+        ),
+      );
     }
+  } on FirebaseAuthException catch (e) {
+    if (!mounted) return;
+    String errorMessage;
+    switch (e.code) {
+      case 'user-not-found':
+        errorMessage = 'No user found with this email';
+        break;
+      case 'wrong-password':
+        errorMessage = 'Incorrect email or password';
+        break;
+      case 'invalid-email':
+        errorMessage = 'Invalid email address';
+        break;
+      case 'user-disabled':
+        errorMessage = 'This account has been disabled';
+        break;
+      case 'too-many-requests':
+        errorMessage = 'Too many login attempts. Please try again later';
+        break;
+      default:
+        errorMessage = 'Login failed: ${e.message}';
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(errorMessage),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Login failed: $e'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  } finally {
+    setState(() => _isLoading = false);
+  }
   }
 
   Future<void> _registerUser() async {
@@ -212,7 +286,7 @@ class _LoginModalState extends State<LoginModal>
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
     }
   }
 
@@ -220,90 +294,145 @@ class _LoginModalState extends State<LoginModal>
     setState(() => _isLoading = true);
 
     try {
+      // Configure Google Sign-In with your web client ID
       final GoogleSignIn googleSignIn = GoogleSignIn();
-
-      // Always sign out first to force account picker
+      
+      // Clear any previous sign-ins
       await googleSignIn.signOut();
-
+      
+      // Begin the sign-in process
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-
+      
       if (googleUser == null) {
+        // User canceled the sign-in
         setState(() => _isLoading = false);
         return;
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      // Authenticate with Firebase using Google credentials
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
+      // Sign in to Firebase with the Google credential
       final auth = FirebaseAuth.instance;
       final userCredential = await auth.signInWithCredential(credential);
-
       final user = userCredential.user;
 
       if (user != null) {
-        final userDoc =
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .get();
+        // Check if user exists in Firestore
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
+        // Create user document if it doesn't exist
         if (!userDoc.exists) {
+          // Get profile photo URL or use a default
+          String? profileImageUrl = user.photoURL;
+          if (profileImageUrl == null || profileImageUrl.isEmpty) {
+            profileImageUrl = 'https://yvyknbymnqpwpxzkabnc.supabase.co/storage/v1/object/public/profile-pictures/image_2025-05-16_221317901.png';
+          }
+          
           await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
               .set({
-                'username': user.displayName ?? 'Guest',
-                'email': user.email ?? '',
-                'profile_image_url': user.photoURL ?? '',
-                'role': 'user',
-                'createdAt': FieldValue.serverTimestamp(),
-              });
+            'username': user.displayName ?? user.email?.split('@')[0] ?? 'Guest',
+            'email': user.email ?? '',
+            'profile_image_url': profileImageUrl,
+            'role': 'user',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Google Sign-In successful!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-
-        Navigator.pop(context);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => MainScreen(
-                  isLimited: false,
-                  initialPageIndex: 4,
-                  username: user.displayName ?? 'Guest',
-                ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Google Sign-In failed: ${e is FirebaseAuthException ? e.message : e.toString()}',
+        if (mounted) {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Google Sign-In successful!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
             ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        // Only pop after a delay, so the SnackBar can show
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted) Navigator.of(context).pop();
-        });
+          );
+
+          // Get username from Firestore or fall back to Google display name
+          String username;
+          if (userDoc.exists) {
+            username = userDoc.data()?['username'] ?? user.displayName ?? 'Guest';
+          } else {
+            username = user.displayName ?? 'Guest';
+          }
+
+          // Navigate to the main screen
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => MainScreen(
+                isLimited: false,
+                initialPageIndex: 4,
+                username: username,
+              ),
+            ),
+          );
+        }
       }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      
+      String errorMessage;
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          errorMessage = 'An account already exists with the same email address but different sign-in credentials.';
+          break;
+        case 'invalid-credential':
+          errorMessage = 'Error occurred during Google sign in. Please try again.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage = 'Google sign-in is not enabled for this project.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'Your account has been disabled.';
+          break;
+        case 'user-not-found':
+        case 'wrong-password':
+          errorMessage = 'No user found for that email, or wrong password.';
+          break;
+        default:
+          errorMessage = 'Google Sign-In failed: ${e.message}';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google Sign-In failed: ${e.message}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google Sign-In failed: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -313,388 +442,391 @@ class _LoginModalState extends State<LoginModal>
     final screenSize = MediaQuery.of(context).size;
     final isSmallScreen = screenSize.width < 360;
 
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-      child: Container(
-        padding: EdgeInsets.only(
-          top: 16,
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          // Ensures content is scrollable
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Handle indicator at top of modal
-                    Container(
-                      height: 5,
-                      width: 60,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(10),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          padding: EdgeInsets.only(
+            top: 16,
+            left: 16,
+            right: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: SingleChildScrollView(
+            // Ensures content is scrollable
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Handle indicator at top of modal
+                      Container(
+                        height: 5,
+                        width: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                    ),
-                    SizedBox(height: isSmallScreen ? 16 : 24),
+                      SizedBox(height: isSmallScreen ? 16 : 24),
 
-                    // Logo/branding element
-                    Container(
-                      width: isSmallScreen ? 80 : 100,
-                      height: isSmallScreen ? 80 : 100,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE47F43).withOpacity(0.1),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ],
+                      // Logo/branding element
+                      Container(
+                        width: isSmallScreen ? 80 : 100,
+                        height: isSmallScreen ? 80 : 100,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE47F43).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Image.asset(
+                          'assets/images/pou_logo_brown.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            // Fallback to icon if image loading fails
+                            return Icon(
+                              Icons.shopping_bag_outlined,
+                              size: isSmallScreen ? 30 : 40,
+                              color: const Color(0xFFE47F43),
+                            );
+                          },
+                        ),
                       ),
-                      child: Image.asset(
-                        'assets/images/pou_logo_brown.png',
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          // Fallback to icon if image loading fails
-                          return Icon(
-                            Icons.shopping_bag_outlined,
-                            size: isSmallScreen ? 30 : 40,
-                            color: const Color(0xFFE47F43),
+                      SizedBox(height: isSmallScreen ? 12 : 16),
+
+                      // Title with animation
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: (
+                          Widget child,
+                          Animation<double> animation,
+                        ) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0.0, 0.5),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
                           );
                         },
-                      ),
-                    ),
-                    SizedBox(height: isSmallScreen ? 12 : 16),
-
-                    // Title with animation
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      transitionBuilder: (
-                        Widget child,
-                        Animation<double> animation,
-                      ) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0.0, 0.5),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
+                        child: Text(
+                          _isRegistering ? 'Create Account' : 'Welcome',
+                          key: ValueKey(_isRegistering),
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 20 : 24,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF333333),
                           ),
-                        );
-                      },
-                      child: Text(
-                        _isRegistering ? 'Create Account' : 'Welcome',
-                        key: ValueKey(_isRegistering),
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 20 : 24,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF333333),
                         ),
                       ),
-                    ),
-                    SizedBox(height: isSmallScreen ? 6 : 8),
+                      SizedBox(height: isSmallScreen ? 6 : 8),
 
-                    // Subtitle with animation
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Text(
-                        _isRegistering
-                            ? 'Sign up to start shopping'
-                            : 'Sign in to continue',
-                        key: ValueKey(_isRegistering),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 12 : 14,
-                          color: Colors.grey.shade600,
+                      // Subtitle with animation
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: Text(
+                          _isRegistering
+                              ? 'Sign up to start shopping'
+                              : 'Sign in to continue',
+                          key: ValueKey(_isRegistering),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 12 : 14,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: isSmallScreen ? 16 : 24),
+                      SizedBox(height: isSmallScreen ? 16 : 24),
 
-                    // Form fields
-                    if (_isRegistering)
+                      // Form fields
+                      if (_isRegistering)
+                        _buildAnimatedTextField(
+                          controller: _usernameController,
+                          labelText: 'Username',
+                          icon: Icons.person_outline,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your username';
+                            }
+                            if (value.length < 3) {
+                              return 'Username must be at least 3 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                      if (_isRegistering)
+                        SizedBox(height: isSmallScreen ? 12 : 16),
+
                       _buildAnimatedTextField(
-                        controller: _usernameController,
-                        labelText: 'Username',
-                        icon: Icons.person_outline,
+                        controller: _emailController,
+                        labelText: 'Email Address',
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter your username';
+                            return 'Please enter your email';
                           }
-                          if (value.length < 3) {
-                            return 'Username must be at least 3 characters';
+                          if (!value.contains('@') || !value.contains('.')) {
+                            return 'Please enter a valid email';
                           }
                           return null;
                         },
                       ),
-                    if (_isRegistering)
                       SizedBox(height: isSmallScreen ? 12 : 16),
 
-                    _buildAnimatedTextField(
-                      controller: _emailController,
-                      labelText: 'Email Address',
-                      icon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@') || !value.contains('.')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    SizedBox(height: isSmallScreen ? 12 : 16),
-
-                    _buildAnimatedTextField(
-                      controller: _passwordController,
-                      labelText: 'Password',
-                      icon: Icons.lock_outline,
-                      obscureText: _obscurePassword,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: Colors.grey,
+                      _buildAnimatedTextField(
+                        controller: _passwordController,
+                        labelText: 'Password',
+                        icon: Icons.lock_outline,
+                        obscureText: _obscurePassword,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your password';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
                         },
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    SizedBox(height: isSmallScreen ? 16 : 24),
+                      SizedBox(height: isSmallScreen ? 16 : 24),
 
-                    // Primary action button with loading animation
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed:
-                            _isLoading
-                                ? null
-                                : _isRegistering
-                                ? _registerUser
-                                : _loginUser,
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            vertical: isSmallScreen ? 12 : 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 3,
-                          backgroundColor: const Color(0xFFD18050),
-                        ).copyWith(
-                          backgroundColor: MaterialStateProperty.resolveWith((
-                            states,
-                          ) {
-                            // Use a subtle gradient effect for the background
-                            return const Color(0xFFE47F43);
-                          }),
-                          overlayColor: MaterialStateProperty.resolveWith((
-                            states,
-                          ) {
-                            if (states.contains(MaterialState.pressed)) {
-                              return Colors.white.withOpacity(0.1);
-                            }
-                            return null;
-                          }),
-                        ),
-                        child:
-                            _isLoading
-                                ? SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white.withOpacity(0.8),
-                                    ),
-                                  ),
-                                )
-                                : Row(
-                                  mainAxisSize:
-                                      MainAxisSize
-                                          .min, // Ensure row doesn't expand too much
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        _isRegistering
-                                            ? 'Create Account'
-                                            : 'Sign In',
-                                        overflow:
-                                            TextOverflow
-                                                .ellipsis, // Handle text overflow
-                                        style: TextStyle(
-                                          fontSize: isSmallScreen ? 14 : 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(width: isSmallScreen ? 4 : 8),
-                                    Icon(
-                                      Icons.arrow_forward,
-                                      size: isSmallScreen ? 14 : 18,
-                                    ),
-                                  ],
-                                ),
-                      ),
-                    ),
-                    SizedBox(height: isSmallScreen ? 12 : 16),
-
-                    // Divider with "or" text
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: Colors.grey.shade300,
-                            thickness: 1,
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isSmallScreen ? 8 : 16,
-                          ),
-                          child: Text(
-                            'OR',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: isSmallScreen ? 12 : 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: Colors.grey.shade300,
-                            thickness: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: isSmallScreen ? 12 : 16),
-
-                    // Google Sign-In button with animation
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: AnimatedOpacity(
-                        opacity: _isLoading ? 0.6 : 1.0,
-                        duration: const Duration(milliseconds: 200),
-                        child: ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _signInWithGoogle,
-                          icon: Image.network(
-                            'https://developers.google.com/identity/images/g-logo.png',
-                            height: isSmallScreen ? 20 : 24,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(Icons.g_mobiledata, size: 24);
-                            },
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return SizedBox(
-                                height: isSmallScreen ? 20 : 24,
-                                width: isSmallScreen ? 20 : 24,
-                                child: const Center(
-                                  child: SizedBox(
-                                    height: 12,
-                                    width: 12,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color(0xFFD18050),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          label: Text(
-                            'Continue with Google',
-                            style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
-                          ),
+                      // Primary action button with loading animation
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed:
+                              _isLoading
+                                  ? null
+                                  : _isRegistering
+                                  ? _registerUser
+                                  : _loginUser,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black87,
+                            foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(
                               vertical: isSmallScreen ? 12 : 16,
-                              horizontal: 20,
                             ),
-                            side: BorderSide(color: Colors.grey.shade300),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            elevation: 0,
+                            elevation: 3,
+                            backgroundColor: const Color(0xFFD18050),
+                          ).copyWith(
+                            backgroundColor: MaterialStateProperty.resolveWith((
+                              states,
+                            ) {
+                              // Use a subtle gradient effect for the background
+                              return const Color(0xFFE47F43);
+                            }),
+                            overlayColor: MaterialStateProperty.resolveWith((
+                              states,
+                            ) {
+                              if (states.contains(MaterialState.pressed)) {
+                                return Colors.white.withOpacity(0.1);
+                              }
+                              return null;
+                            }),
                           ),
+                          child:
+                              _isLoading
+                                  ? SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white.withOpacity(0.8),
+                                      ),
+                                    ),
+                                  )
+                                  : Row(
+                                    mainAxisSize:
+                                        MainAxisSize
+                                            .min, // Ensure row doesn't expand too much
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          _isRegistering
+                                              ? 'Create Account'
+                                              : 'Sign In',
+                                          overflow:
+                                              TextOverflow
+                                                  .ellipsis, // Handle text overflow
+                                          style: TextStyle(
+                                            fontSize: isSmallScreen ? 14 : 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: isSmallScreen ? 4 : 8),
+                                      Icon(
+                                        Icons.arrow_forward,
+                                        size: isSmallScreen ? 14 : 18,
+                                      ),
+                                    ],
+                                  ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: isSmallScreen ? 16 : 20),
+                      SizedBox(height: isSmallScreen ? 12 : 16),
 
-                    // Toggle between login and register
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          _isRegistering
-                              ? 'Already have an account? '
-                              : 'Don\'t have an account? ',
-                          style: TextStyle(
-                            color: Colors.grey.shade700,
-                            fontSize: isSmallScreen ? 12 : 14,
+                      // Divider with "or" text
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              color: Colors.grey.shade300,
+                              thickness: 1,
+                            ),
                           ),
-                        ),
-                        GestureDetector(
-                          onTap: _toggleForm,
-                          child: Text(
-                            _isRegistering ? 'Sign In' : 'Sign Up',
-                            style: TextStyle(
-                              color: const Color(0xFFE47F43),
-                              fontWeight: FontWeight.bold,
-                              fontSize: isSmallScreen ? 12 : 14,
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmallScreen ? 8 : 16,
+                            ),
+                            child: Text(
+                              'OR',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: isSmallScreen ? 12 : 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              color: Colors.grey.shade300,
+                              thickness: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: isSmallScreen ? 12 : 16),
+
+                      // Google Sign-In button with animation
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: AnimatedOpacity(
+                          opacity: _isLoading ? 0.6 : 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: ElevatedButton.icon(
+                            onPressed: _isLoading ? null : _signInWithGoogle,
+                            icon: Image.network(
+                              'https://developers.google.com/identity/images/g-logo.png',
+                              height: isSmallScreen ? 20 : 24,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(Icons.g_mobiledata, size: 24);
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return SizedBox(
+                                  height: isSmallScreen ? 20 : 24,
+                                  width: isSmallScreen ? 20 : 24,
+                                  child: const Center(
+                                    child: SizedBox(
+                                      height: 12,
+                                      width: 12,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          Color(0xFFD18050),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            label: Text(
+                              'Continue with Google',
+                              style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black87,
+                              padding: EdgeInsets.symmetric(
+                                vertical: isSmallScreen ? 12 : 16,
+                                horizontal: 20,
+                              ),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    // Add bottom padding to ensure the last element is not cut off on small screens
-                    SizedBox(height: isSmallScreen ? 16 : 8),
-                  ],
+                      ),
+                      SizedBox(height: isSmallScreen ? 16 : 20),
+
+                      // Toggle between login and register
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _isRegistering
+                                ? 'Already have an account? '
+                                : 'Don\'t have an account? ',
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                              fontSize: isSmallScreen ? 12 : 14,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _toggleForm,
+                            child: Text(
+                              _isRegistering ? 'Sign In' : 'Sign Up',
+                              style: TextStyle(
+                                color: const Color(0xFFE47F43),
+                                fontWeight: FontWeight.bold,
+                                fontSize: isSmallScreen ? 12 : 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Add bottom padding to ensure the last element is not cut off on small screens
+                      SizedBox(height: isSmallScreen ? 16 : 8),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -791,3 +923,6 @@ void showLoginModal(BuildContext context) {
     },
   );
 }
+
+// Uncomment the following line and place it in your main() function to use the Firebase Auth emulator for local testing
+// FirebaseAuth.instance.useAuthEmulator('localhost', 9099);

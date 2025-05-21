@@ -328,19 +328,23 @@ class _ManageProductsPageState extends State<ManageProductsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product image - fixed height
-            Stack(
-              alignment: Alignment.topRight,
-              children: [
-                SizedBox(
-                  height: 120,
-                  width: double.infinity,
-                  child: product['imageUrl'] != null
+            // Product image with fixed height to maintain consistency
+            AspectRatio(
+              aspectRatio: 16/9,
+              child: Stack(
+                fit: StackFit.expand,
+                alignment: Alignment.topRight,
+                children: [
+                  product['imageUrl'] != null
                       ? Image.network(
                           product['imageUrl'],
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => const Center(
-                            child: Icon(Icons.broken_image),
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Icon(
+                              Icons.broken_image,
+                              size: 40,
+                              color: _accentColor.withOpacity(0.5),
+                            ),
                           ),
                         )
                       : Container(
@@ -351,39 +355,44 @@ class _ManageProductsPageState extends State<ManageProductsPage> {
                             color: _accentColor.withOpacity(0.5),
                           ),
                         ),
-                ),
-                // Category badge
-                if (product['category'] != null)
-                  Container(
-                    margin: const EdgeInsets.all(8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _primaryColor,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      product['category'],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                  // Category badge
+                  if (product['category'] != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _primaryColor,
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Text(
+                          product['category'],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-            // Product info - fill remaining space to avoid overflow
-            Flexible(
-              fit: FlexFit.loose,
+            
+            // Product info - use expanded to fill remaining space
+            Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Product name
                     Text(
                       product['name'] ?? 'Unnamed Product',
                       style: TextStyle(
@@ -394,64 +403,74 @@ class _ManageProductsPageState extends State<ManageProductsPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    
                     const SizedBox(height: 2),
+                    
+                    // Stock info
                     Text(
                       'Stock: ${product['stock'] ?? 0}',
                       style: TextStyle(
                         fontSize: 12,
                         color: _accentColor.withOpacity(0.7),
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    
+                    // Use Spacer to push price and action buttons to bottom
+                    const Spacer(),
+                    
+                    // Price and action buttons row
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '₱${product['price'].toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: _accentColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                        // Price with flexible width
+                        Expanded(
+                          child: Text(
+                            '₱${product['price'].toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: _accentColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            InkWell(
-                              onTap: () => _editProduct(product['id'], product),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.edit,
-                                  size: 16,
-                                  color: Colors.blue,
-                                ),
-                              ),
+                        
+                        // Action buttons
+                        InkWell(
+                          onTap: () => _editProduct(product['id'], product),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            margin: const EdgeInsets.only(right: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              shape: BoxShape.circle,
                             ),
-                            const SizedBox(width: 4),
-                            InkWell(
-                              onTap: () => _confirmDeleteProduct(
-                                product['id'],
-                                product['name'] ?? 'this product',
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.delete,
-                                  size: 16,
-                                  color: Colors.red,
-                                ),
-                              ),
+                            child: const Icon(
+                              Icons.edit,
+                              size: 16,
+                              color: Colors.blue,
                             ),
-                          ],
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () => _confirmDeleteProduct(
+                            product['id'],
+                            product['name'] ?? 'this product',
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.delete,
+                              size: 16,
+                              color: Colors.red,
+                            ),
+                          ),
                         ),
                       ],
                     ),

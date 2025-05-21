@@ -141,6 +141,18 @@ class _ProductDetailsState extends State<ProductDetails> {
       // Use product name and size as a unique cart item ID (or use product ID if available)
       final cartItemId = '${widget.productName}_${_selectedSize ?? "One Size"}';
 
+      // Before adding to cart, fetch the product's sellerId from Firestore
+      final productSnap = await FirebaseFirestore.instance
+          .collection('products')
+          .where('name', isEqualTo: widget.productName)
+          .limit(1)
+          .get();
+
+      String sellerId = '';
+      if (productSnap.docs.isNotEmpty) {
+        sellerId = productSnap.docs.first['sellerId'] ?? '';
+      }
+
       await cartCollection.doc(cartItemId).set({
         'name': widget.productName,
         'price':
@@ -156,6 +168,7 @@ class _ProductDetailsState extends State<ProductDetails> {
         'category': widget.category,
         'subcategory': widget.subcategory,
         'addedAt': FieldValue.serverTimestamp(),
+        'sellerId': sellerId,
       }, SetOptions(merge: true));
 
       ScaffoldMessenger.of(context).showSnackBar(

@@ -105,33 +105,44 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // Create order ID
       final orderId = FirebaseFirestore.instance.collection('orders').doc().id;
 
+      // Calculate subtotal, shipping fee, and total
+      final subtotal = widget.items.fold(0.0, (t, i) => t + i.price * i.quantity);
+      final shippingFee = 50.0; // Flat rate shipping fee
+      final total = subtotal + shippingFee;
+
       // Build order data
+      final sellerId = widget.items.first.sellerId;
+      if (sellerId == null || sellerId.isEmpty) {
+        throw Exception('Seller ID is missing for the order.');
+      }
+
       final orderData = {
         'orderId': orderId,
         'buyerId': userId,
-        'items':
-            widget.items
-                .map(
-                  (item) => {
-                    'id': item.id,
-                    'name': item.name,
-                    'price': item.price,
-                    'quantity': item.quantity,
-                    'imageUrl': item.imageUrl,
-                    'sellerId': item.sellerId,
-                  },
-                )
-                .toList(),
-        'shippingAddress': _selectedAddress?['addressLine'] ?? '',
-        'recipient': _selectedAddress?['name'] ?? '',
-        'phoneNumber': _selectedAddress?['phone'] ?? '',
+        'buyerName': _selectedAddress?['name'] ?? '',
+        'sellerId': sellerId,
+        'items': widget.items.map((item) => {
+          'id': item.id,
+          'name': item.name,
+          'price': item.price,
+          'quantity': item.quantity,
+          'imageUrl': item.imageUrl,
+        }).toList(),
+        'itemCount': widget.items.length,
+        'address': _selectedAddress?['addressLine'] ?? '',
+        'phone': _selectedAddress?['phone'] ?? '',
         'paymentMethod': _selectedPaymentMethod,
-        'total': widget.items.fold(0.0, (t, i) => t + i.price * i.quantity),
-        'timestamp': FieldValue.serverTimestamp(),
+        'subtotal': subtotal,
+        'shippingFee': shippingFee,
+        'total': total,
         'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
       };
 
-      // Save order for buyer
+      // Save to main orders collection
+      await FirebaseFirestore.instance.collection('orders').doc(orderId).set(orderData);
+
+      // Save to buyer's orders subcollection
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -139,55 +150,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
           .doc(orderId)
           .set(orderData);
 
-      // Group items by seller
-      final sellerGroups = <String, List<CartItem>>{};
-      for (final item in widget.items) {
-        sellerGroups.putIfAbsent(item.sellerId, () => []).add(item);
-      }
-
-      // Create a separate order for each seller
-      for (final sellerId in sellerGroups.keys) {
-        if (sellerId == null || sellerId.isEmpty) {
-          debugPrint(
-            'Invalid sellerId in cart item, skipping order creation for this seller.',
-          );
-          continue;
-        }
-        final sellerOrderId =
-            FirebaseFirestore.instance.collection('orders').doc().id;
-        final sellerItems = sellerGroups[sellerId]!;
-
-        final sellerOrderData = {
-          'orderId': sellerOrderId,
-          'buyerId': userId,
-          'items':
-              sellerItems
-                  .map(
-                    (item) => {
-                      'id': item.id,
-                      'name': item.name,
-                      'price': item.price,
-                      'quantity': item.quantity,
-                      'imageUrl': item.imageUrl,
-                    },
-                  )
-                  .toList(),
-          'shippingAddress': _selectedAddress?['addressLine'] ?? '',
-          'recipient': _selectedAddress?['name'] ?? '',
-          'phoneNumber': _selectedAddress?['phone'] ?? '',
-          'paymentMethod': _selectedPaymentMethod,
-          'total': sellerItems.fold(0.0, (t, i) => t + i.price * i.quantity),
-          'timestamp': FieldValue.serverTimestamp(),
-          'status': 'pending',
-        };
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(sellerId)
-            .collection('sales')
-            .doc(sellerOrderId)
-            .set(sellerOrderData);
-      }
+      // Save to seller's sales subcollection
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(sellerId)
+          .collection('sales')
+          .doc(orderId)
+          .set(orderData);
 
       // Remove items from cart
       for (final item in widget.items) {
