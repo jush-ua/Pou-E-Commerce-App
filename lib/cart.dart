@@ -57,12 +57,12 @@ class _CartPageState extends State<CartPage> {
     }
 
     if (_userId == null) return;
-    
+
     // Also remove from selected items if present
     setState(() {
       _selectedCartItemIds.remove(cartItemId);
     });
-    
+
     await FirebaseFirestore.instance
         .collection('users')
         .doc(_userId)
@@ -91,7 +91,7 @@ class _CartPageState extends State<CartPage> {
     for (var doc in items.docs) {
       await doc.reference.delete();
     }
-    
+
     // Clear selections when cart is cleared
     setState(() {
       _selectedCartItemIds.clear();
@@ -151,7 +151,9 @@ class _CartPageState extends State<CartPage> {
         items.where((item) => _selectedCartItemIds.contains(item.id)).toList();
     if (selectedItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one item to checkout')),
+        const SnackBar(
+          content: Text('Please select at least one item to checkout'),
+        ),
       );
       return;
     }
@@ -250,7 +252,7 @@ class _CartPageState extends State<CartPage> {
                 ],
               ),
             ),
-            
+
             // Cart items list
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
@@ -298,6 +300,7 @@ class _CartPageState extends State<CartPage> {
                           quantity: (data['quantity'] ?? 1) as int,
                           imageUrl: data['imageUrl'] ?? '',
                           sellerId: data['sellerId'] ?? '',
+                          size: data['size'], // <-- Add this line
                         );
                       }).toList();
 
@@ -314,14 +317,15 @@ class _CartPageState extends State<CartPage> {
                       // Select all option
                       if (items.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 8.0,
+                          ),
                           child: Row(
                             children: [
                               const Text(
                                 'Select All',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w500),
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -335,7 +339,9 @@ class _CartPageState extends State<CartPage> {
                               InkWell(
                                 borderRadius: BorderRadius.circular(30),
                                 onTap: () {
-                                  final allSelected = _selectedCartItemIds.length == items.length;
+                                  final allSelected =
+                                      _selectedCartItemIds.length ==
+                                      items.length;
                                   _toggleSelectAll(items, !allSelected);
                                 },
                                 child: Container(
@@ -343,27 +349,31 @@ class _CartPageState extends State<CartPage> {
                                   height: 24,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: _selectedCartItemIds.length == items.length
-                                        ? _primaryColor
-                                        : Colors.white,
+                                    color:
+                                        _selectedCartItemIds.length ==
+                                                items.length
+                                            ? _primaryColor
+                                            : Colors.white,
                                     border: Border.all(
                                       color: _primaryColor,
                                       width: 2,
                                     ),
                                   ),
-                                  child: _selectedCartItemIds.length == items.length
-                                      ? const Icon(
-                                          Icons.check,
-                                          color: Colors.white,
-                                          size: 16,
-                                        )
-                                      : Container(),
+                                  child:
+                                      _selectedCartItemIds.length ==
+                                              items.length
+                                          ? const Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 16,
+                                          )
+                                          : Container(),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      
+
                       // Cart items
                       Expanded(
                         child: ListView.builder(
@@ -371,17 +381,23 @@ class _CartPageState extends State<CartPage> {
                           itemCount: items.length,
                           itemBuilder: (context, index) {
                             final item = items[index];
-                            final isSelected = _selectedCartItemIds.contains(item.id);
-                            
+                            final isSelected = _selectedCartItemIds.contains(
+                              item.id,
+                            );
+
                             return Container(
                               margin: const EdgeInsets.only(bottom: 16),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
                                 // Add a subtle highlight if selected
-                                border: isSelected 
-                                    ? Border.all(color: _primaryColor.withOpacity(0.5), width: 2)
-                                    : null,
+                                border:
+                                    isSelected
+                                        ? Border.all(
+                                          color: _primaryColor.withOpacity(0.5),
+                                          width: 2,
+                                        )
+                                        : null,
                               ),
                               child: Row(
                                 children: [
@@ -397,18 +413,25 @@ class _CartPageState extends State<CartPage> {
                                     child:
                                         item.imageUrl.isNotEmpty
                                             ? ClipRRect(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                               child: CachedNetworkImage(
                                                 imageUrl: item.imageUrl,
                                                 fit: BoxFit.cover,
                                                 placeholder:
-                                                    (context, url) => const SizedBox(
+                                                    (
+                                                      context,
+                                                      url,
+                                                    ) => const SizedBox(
                                                       width: 30,
                                                       height: 30,
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: Color(0xFFD18050),
-                                                      ),
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                            color: Color(
+                                                              0xFFD18050,
+                                                            ),
+                                                          ),
                                                     ),
                                                 errorWidget:
                                                     (context, url, error) =>
@@ -426,7 +449,8 @@ class _CartPageState extends State<CartPage> {
                                     child: Padding(
                                       padding: const EdgeInsets.all(16),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             item.name,
@@ -453,53 +477,59 @@ class _CartPageState extends State<CartPage> {
                                                   border: Border.all(
                                                     color: Colors.grey,
                                                   ),
-                                                  borderRadius: BorderRadius.circular(
-                                                    4,
-                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
                                                 ),
                                                 child: Row(
                                                   children: [
                                                     InkWell(
                                                       onTap:
                                                           item.quantity > 1
-                                                              ? () => _updateQuantity(
+                                                              ? () =>
+                                                                  _updateQuantity(
                                                                     item.id,
-                                                                    item.quantity - 1,
+                                                                    item.quantity -
+                                                                        1,
                                                                   )
                                                               : null,
                                                       child: Container(
                                                         width: 24,
                                                         height: 24,
-                                                        alignment: Alignment.center,
+                                                        alignment:
+                                                            Alignment.center,
                                                         child: Icon(
                                                           Icons.remove,
                                                           size: 16,
-                                                          color: item.quantity > 1
-                                                              ? Colors.black
-                                                              : Colors.grey,
+                                                          color:
+                                                              item.quantity > 1
+                                                                  ? Colors.black
+                                                                  : Colors.grey,
                                                         ),
                                                       ),
                                                     ),
                                                     Container(
                                                       width: 30,
-                                                      alignment: Alignment.center,
+                                                      alignment:
+                                                          Alignment.center,
                                                       child: Text(
                                                         '${item.quantity}',
                                                         style: const TextStyle(
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                         ),
                                                       ),
                                                     ),
                                                     InkWell(
                                                       onTap:
                                                           () => _updateQuantity(
-                                                                item.id,
-                                                                item.quantity + 1,
-                                                              ),
+                                                            item.id,
+                                                            item.quantity + 1,
+                                                          ),
                                                       child: Container(
                                                         width: 24,
                                                         height: 24,
-                                                        alignment: Alignment.center,
+                                                        alignment:
+                                                            Alignment.center,
                                                         child: const Icon(
                                                           Icons.add,
                                                           size: 16,
@@ -516,7 +546,8 @@ class _CartPageState extends State<CartPage> {
                                                   Icons.delete_outline,
                                                   size: 20,
                                                 ),
-                                                onPressed: () => _removeItem(item.id),
+                                                onPressed:
+                                                    () => _removeItem(item.id),
                                                 tooltip: 'Remove item',
                                               ),
 
@@ -525,17 +556,24 @@ class _CartPageState extends State<CartPage> {
 
                                               // Checkbox on the right side
                                               InkWell(
-                                                splashColor: _primaryColor.withOpacity(0.3),
-                                                borderRadius: BorderRadius.circular(30),
-                                                onTap: () => _toggleCartItemSelection(item.id),
+                                                splashColor: _primaryColor
+                                                    .withOpacity(0.3),
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                                onTap:
+                                                    () =>
+                                                        _toggleCartItemSelection(
+                                                          item.id,
+                                                        ),
                                                 child: Container(
                                                   width: 28,
                                                   height: 28,
                                                   decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
-                                                    color: isSelected
-                                                        ? _primaryColor
-                                                        : Colors.white,
+                                                    color:
+                                                        isSelected
+                                                            ? _primaryColor
+                                                            : Colors.white,
                                                     border: Border.all(
                                                       color: _primaryColor,
                                                       width: 2,
@@ -544,9 +582,10 @@ class _CartPageState extends State<CartPage> {
                                                   child: Center(
                                                     child: Icon(
                                                       Icons.check,
-                                                      color: isSelected
-                                                          ? Colors.white
-                                                          : _primaryColor,
+                                                      color:
+                                                          isSelected
+                                                              ? Colors.white
+                                                              : _primaryColor,
                                                       size: 16,
                                                     ),
                                                   ),
@@ -569,7 +608,7 @@ class _CartPageState extends State<CartPage> {
                 },
               ),
             ),
-            
+
             // Total and checkout section
             StreamBuilder<QuerySnapshot>(
               stream:
@@ -590,11 +629,15 @@ class _CartPageState extends State<CartPage> {
                             quantity: (data['quantity'] ?? 1) as int,
                             imageUrl: data['imageUrl'] ?? '',
                             sellerId: data['sellerId'] ?? '',
+                            size: data['size'],
                           );
                         }).toList()
                         : <CartItem>[];
                 final selectedTotal = _calculateSelectedTotal(items);
-                final selectedCount = items.where((item) => _selectedCartItemIds.contains(item.id)).length;
+                final selectedCount =
+                    items
+                        .where((item) => _selectedCartItemIds.contains(item.id))
+                        .length;
 
                 return Container(
                   padding: const EdgeInsets.all(16),
@@ -702,7 +745,8 @@ class CartItem {
   final double price;
   final int quantity;
   final String imageUrl;
-  final String sellerId;
+  final String? sellerId;
+  final String? size; // Already present
 
   CartItem({
     required this.id,
@@ -711,5 +755,6 @@ class CartItem {
     required this.quantity,
     required this.imageUrl,
     required this.sellerId,
+    this.size, // <-- Add this line
   });
 }

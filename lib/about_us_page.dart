@@ -53,11 +53,12 @@ class AboutUsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'POU',
+                    'ShaPou', // Changed from 'POU'
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
+                      fontFamily: 'Inter', // Add Inter font
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -66,6 +67,7 @@ class AboutUsPage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.white,
+                      fontFamily: 'Inter', // Add Inter font
                     ),
                   ),
                 ],
@@ -200,7 +202,7 @@ class AboutUsPage extends StatelessWidget {
               child: Column(
                 children: [
                   const Text(
-                    'POU E-Commerce App',
+                    'ShaPou E-Commerce App',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,

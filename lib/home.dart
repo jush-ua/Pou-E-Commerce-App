@@ -207,17 +207,19 @@ class _HomePageState extends State<HomePage> {
       home: Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(
-          child: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(), // Show a loading indicator
-                )
-              : _products.isEmpty
+          child:
+              _isLoading
                   ? const Center(
-                      child: Text(
-                        'No products available.',
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
-                    )
+                    child:
+                        CircularProgressIndicator(), // Show a loading indicator
+                  )
+                  : _products.isEmpty
+                  ? const Center(
+                    child: Text(
+                      'No products available.',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  )
                   : _buildCollapsedContent(), // Use the collapsed content here instead
         ),
       ),
@@ -305,28 +307,15 @@ class _HomePageState extends State<HomePage> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder:
-                                        (context) => ProductDetails(
-                                          productName:
-                                              product['name'] ??
-                                              'Unknown Product',
-                                          productPrice:
-                                              '₱${product['price']?.toStringAsFixed(2) ?? '0.00'}',
-                                          productDescription:
-                                              product['description'] ??
-                                              'No description available',
-                                          imageUrl: product['imageUrl'] ?? '',
-                                          soldCount:
-                                              product['soldCount']
-                                                  ?.toString() ??
-                                              '0',
-                                          category:
-                                              product['category'] ??
-                                              'Unknown Category',
-                                          subcategory:
-                                              product['subcategory'] ??
-                                              'Unknown Subcategory',
-                                        ),
+                                    builder: (context) => ProductDetails(
+                                      productName: product['name'] ?? 'Unknown Product',
+                                      productPrice: '₱${product['price']?.toStringAsFixed(2) ?? '0.00'}',
+                                      productDescription: product['description'] ?? 'No description available',
+                                      imageUrl: product['imageUrl'] ?? '',
+                                      soldCount: product['soldCount']?.toString() ?? '0',
+                                      category: product['category'] ?? 'Unknown Category',
+                                      subcategory: product['subcategory'] ?? 'Unknown Subcategory',
+                                    ),
                                   ),
                                 );
                               },
@@ -338,8 +327,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 child: Stack(
                                   children: [
-                                    if (product['imageUrl'] != null &&
-                                        product['imageUrl'].isNotEmpty)
+                                    if (product['imageUrl'] != null && product['imageUrl'].isNotEmpty)
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(10),
                                         child: CachedNetworkImage(
@@ -347,19 +335,16 @@ class _HomePageState extends State<HomePage> {
                                           fit: BoxFit.cover,
                                           width: double.infinity,
                                           height: double.infinity,
-                                          placeholder:
-                                              (context, url) => Center(
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      color: Color(0xFFE47F43),
-                                                    ),
-                                              ),
-                                          errorWidget:
-                                              (context, url, error) => Icon(
-                                                Icons.image,
-                                                size: 60,
-                                                color: Colors.grey,
-                                              ),
+                                          placeholder: (context, url) => Center(
+                                            child: CircularProgressIndicator(
+                                              color: Color(0xFFE47F43),
+                                            ),
+                                          ),
+                                          errorWidget: (context, url, error) => Icon(
+                                            Icons.image,
+                                            size: 60,
+                                            color: Colors.grey,
+                                          ),
                                         ),
                                       ),
                                     Container(
@@ -375,22 +360,25 @@ class _HomePageState extends State<HomePage> {
                                         ),
                                       ),
                                     ),
-                                    Padding(
-                                      padding: EdgeInsets.all(16.0),
+                                    // Product info positioned at bottom with proper margins
+                                    Positioned(
+                                      bottom: 16,
+                                      left: 60, // Start after left arrow space
+                                      right: 60, // End before right arrow space
                                       child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start, // Changed from center to start
                                         children: [
                                           Text(
-                                            product['name'] ??
-                                                'Unknown Product',
+                                            product['name'] ?? 'Unknown Product',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 18,
                                               fontWeight: FontWeight.bold,
                                             ),
+                                            textAlign: TextAlign.left, // Changed from center to left
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                           SizedBox(height: 4),
                                           Text(
@@ -399,6 +387,7 @@ class _HomePageState extends State<HomePage> {
                                               color: Colors.white,
                                               fontSize: 16,
                                             ),
+                                            textAlign: TextAlign.left, // Changed from center to left
                                           ),
                                           SizedBox(height: 8),
                                           Container(
@@ -408,8 +397,7 @@ class _HomePageState extends State<HomePage> {
                                             ),
                                             decoration: BoxDecoration(
                                               color: Color(0xFFE47F43),
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
+                                              borderRadius: BorderRadius.circular(20),
                                             ),
                                             child: Text(
                                               'Featured',
@@ -417,6 +405,7 @@ class _HomePageState extends State<HomePage> {
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.bold,
                                               ),
+                                              textAlign: TextAlign.center, // Keep this centered within the badge
                                             ),
                                           ),
                                         ],
@@ -715,44 +704,47 @@ class _HomePageState extends State<HomePage> {
                   ),
                   color: Colors.grey[200],
                 ),
-                child: imageUrl.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(10),
-                          topRight: Radius.circular(10),
-                        ),
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          placeholder: (context, url) => Center(
-                            child: SizedBox(
-                              width: 30,
-                              height: 30,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFFE47F43),
-                              ),
-                            ),
+                child:
+                    imageUrl.isNotEmpty
+                        ? ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(10),
+                            topRight: Radius.circular(10),
                           ),
-                          errorWidget: (context, url, error) => const Center(
-                            child: Icon(
-                              Icons.image,
-                              size: 60,
-                              color: Colors.grey,
-                            ),
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            placeholder:
+                                (context, url) => Center(
+                                  child: SizedBox(
+                                    width: 30,
+                                    height: 30,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFFE47F43),
+                                    ),
+                                  ),
+                                ),
+                            errorWidget:
+                                (context, url, error) => const Center(
+                                  child: Icon(
+                                    Icons.image,
+                                    size: 60,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                            memCacheWidth: 300,
                           ),
-                          memCacheWidth: 300,
+                        )
+                        : const Center(
+                          child: Icon(
+                            Icons.image,
+                            size: 60,
+                            color: Colors.grey,
+                          ),
                         ),
-                      )
-                    : const Center(
-                        child: Icon(
-                          Icons.image,
-                          size: 60,
-                          color: Colors.grey,
-                        ),
-                      ),
               ),
               // Discount badge (unchanged)
               if (((product['discount'] ?? 0) > 0) ||
@@ -789,7 +781,12 @@ class _HomePageState extends State<HomePage> {
           ),
           // Updated padding and content layout
           Padding(
-            padding: const EdgeInsets.fromLTRB(10.0, 8.0, 10.0, 6.0), // Reduced padding
+            padding: const EdgeInsets.fromLTRB(
+              10.0,
+              8.0,
+              10.0,
+              6.0,
+            ), // Reduced padding
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -833,7 +830,11 @@ class _HomePageState extends State<HomePage> {
                     ),
                     Row(
                       children: [
-                        const Icon(Icons.star, color: Colors.amber, size: 12), // Smaller icon
+                        const Icon(
+                          Icons.star,
+                          color: Colors.amber,
+                          size: 12,
+                        ), // Smaller icon
                         Text(
                           ' ${product['rating'] ?? 4.5}',
                           style: TextStyle(
@@ -847,7 +848,10 @@ class _HomePageState extends State<HomePage> {
                 ),
                 Text(
                   soldCount,
-                  style: const TextStyle(color: Colors.grey, fontSize: 11), // Smaller font
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 11,
+                  ), // Smaller font
                 ),
               ],
             ),

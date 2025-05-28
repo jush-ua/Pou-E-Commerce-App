@@ -134,7 +134,9 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
   ) {
     final formattedDate =
         order['createdAt'] != null
-            ? DateFormat('MMM dd, yyyy').format((order['createdAt'] as Timestamp).toDate())
+            ? DateFormat(
+              'MMM dd, yyyy',
+            ).format((order['createdAt'] as Timestamp).toDate())
             : 'N/A';
 
     final nextAction =
@@ -178,15 +180,26 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 4),
-                    Text(formattedDate, style: TextStyle(color: Colors.grey[600])),
+                    Text(
+                      formattedDate,
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
                   ],
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                    const Icon(
+                      Icons.person_outline,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
@@ -553,6 +566,54 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
             .update({'status': newStatus});
       }
 
+      // Increment soldCount for each product when order is completed
+      if (newStatus == 'completed' && order['items'] != null) {
+        for (var item in (order['items'] as List)) {
+          final productName = item['name'];
+          final quantity = item['quantity'] ?? 1;
+          final size = item['size']; // If you support sizes
+
+          // Find the product by name (or use productId if available)
+          final productQuery =
+              await FirebaseFirestore.instance
+                  .collection('products')
+                  .where('name', isEqualTo: productName)
+                  .limit(1)
+                  .get();
+          if (productQuery.docs.isNotEmpty) {
+            final productDoc = productQuery.docs.first.reference;
+            final productData = productQuery.docs.first.data();
+
+            // Update soldCount
+            await productDoc.update({
+              'soldCount': FieldValue.increment(quantity),
+            });
+
+            // Decrement stock
+            if ((productData['hasMultipleSizes'] ?? false) && size != null) {
+              // Update the correct size's stock
+              List sizes = List.from(productData['sizes'] ?? []);
+              int idx = sizes.indexWhere((s) => s['size'] == size);
+              if (idx != -1) {
+                sizes[idx]['stock'] = (sizes[idx]['stock'] ?? 0) - quantity;
+                if (sizes[idx]['stock'] < 0) sizes[idx]['stock'] = 0;
+              }
+              // Update total stock as well
+              int totalStock = sizes.fold<int>(
+                0,
+                (sum, s) => sum + ((s['stock'] ?? 0) as int),
+              );
+              await productDoc.update({'sizes': sizes, 'stock': totalStock});
+            } else {
+              // Single size product
+              int newStock = (productData['stock'] ?? 0) - quantity;
+              if (newStock < 0) newStock = 0;
+              await productDoc.update({'stock': newStock});
+            }
+          }
+        }
+      }
+
       // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -594,7 +655,9 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
     final order = orderDoc.data() as Map<String, dynamic>;
     final formattedDate =
         order['createdAt'] != null
-            ? DateFormat('MMM dd, yyyy').format((order['createdAt'] as Timestamp).toDate())
+            ? DateFormat(
+              'MMM dd, yyyy',
+            ).format((order['createdAt'] as Timestamp).toDate())
             : 'N/A';
 
     return Card(
@@ -649,15 +712,26 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 4),
-                    Text(formattedDate, style: TextStyle(color: Colors.grey[600])),
+                    Text(
+                      formattedDate,
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
                   ],
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                    const Icon(
+                      Icons.person_outline,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
@@ -706,13 +780,18 @@ class _ManageOrdersPageState extends State<ManageOrdersPage>
                     final sellerId = order['sellerId'];
                     final orderId = order['orderId'];
 
-                    if (buyerId == null || buyerId.isEmpty ||
-                        sellerId == null || sellerId.isEmpty ||
-                        orderId == null || orderId.isEmpty) {
+                    if (buyerId == null ||
+                        buyerId.isEmpty ||
+                        sellerId == null ||
+                        sellerId.isEmpty ||
+                        orderId == null ||
+                        orderId.isEmpty) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Order data is incomplete. Cannot update status.'),
+                            content: Text(
+                              'Order data is incomplete. Cannot update status.',
+                            ),
                             backgroundColor: Colors.red,
                           ),
                         );

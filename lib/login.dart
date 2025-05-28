@@ -108,20 +108,21 @@ class _LoginModalState extends State<LoginModal>
       );
 
       final user = userCredential.user;
-      
+
       if (user == null) {
         throw FirebaseAuthException(
           code: 'user-not-found',
           message: 'No user found with this email',
         );
       }
-      
+
       // Fetch the user document from Firestore
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-    
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
       // If the user document doesn't exist in Firestore, create one
       if (!userDoc.exists) {
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
@@ -131,103 +132,107 @@ class _LoginModalState extends State<LoginModal>
           'role': 'user',
           'createdAt': FieldValue.serverTimestamp(),
         });
-      
+
         // Fetch the user document again after creating it
-        final updatedUserDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-          
-      final username = updatedUserDoc.data()?['username'] ?? user.email ?? 'Guest';
-      
+        final updatedUserDoc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
+
+        final username =
+            updatedUserDoc.data()?['username'] ?? user.email ?? 'Guest';
+
+        if (!mounted) return;
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login successful!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Navigate to the main screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder:
+                (context) => MainScreen(
+                  isLimited: false,
+                  initialPageIndex: 4,
+                  username: username,
+                ),
+          ),
+        );
+      } else {
+        // User document exists, proceed with normal login
+        final username = userDoc.data()?['username'] ?? user.email ?? 'Guest';
+
+        if (!mounted) return;
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login successful!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Navigate to the main screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder:
+                (context) => MainScreen(
+                  isLimited: false,
+                  initialPageIndex: 4,
+                  username: username,
+                ),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      
-      // Show success message
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'No user found with this email';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Incorrect email or password';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Invalid email address';
+          break;
+        case 'user-disabled':
+          errorMessage = 'This account has been disabled';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Too many login attempts. Please try again later';
+          break;
+        default:
+          errorMessage = 'Login failed: ${e.message}';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login successful!'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
-      
-      // Navigate to the main screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => MainScreen(
-            isLimited: false,
-            initialPageIndex: 4,
-            username: username,
-          ),
-        ),
-      );
-    } else {
-      // User document exists, proceed with normal login
-      final username = userDoc.data()?['username'] ?? user.email ?? 'Guest';
-      
+    } catch (e) {
       if (!mounted) return;
-      
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login successful!'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text('Login failed: $e'),
+          backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
-      
-      // Navigate to the main screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => MainScreen(
-            isLimited: false,
-            initialPageIndex: 4,
-            username: username,
-          ),
-        ),
-      );
+    } finally {
+      setState(() => _isLoading = false);
     }
-  } on FirebaseAuthException catch (e) {
-    if (!mounted) return;
-    String errorMessage;
-    switch (e.code) {
-      case 'user-not-found':
-        errorMessage = 'No user found with this email';
-        break;
-      case 'wrong-password':
-        errorMessage = 'Incorrect email or password';
-        break;
-      case 'invalid-email':
-        errorMessage = 'Invalid email address';
-        break;
-      case 'user-disabled':
-        errorMessage = 'This account has been disabled';
-        break;
-      case 'too-many-requests':
-        errorMessage = 'Too many login attempts. Please try again later';
-        break;
-      default:
-        errorMessage = 'Login failed: ${e.message}';
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(errorMessage),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Login failed: $e'),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  } finally {
-    setState(() => _isLoading = false);
-  }
   }
 
   Future<void> _registerUser() async {
@@ -296,13 +301,13 @@ class _LoginModalState extends State<LoginModal>
     try {
       // Configure Google Sign-In with your web client ID
       final GoogleSignIn googleSignIn = GoogleSignIn();
-      
+
       // Clear any previous sign-ins
       await googleSignIn.signOut();
-      
+
       // Begin the sign-in process
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      
+
       if (googleUser == null) {
         // User canceled the sign-in
         setState(() => _isLoading = false);
@@ -310,7 +315,8 @@ class _LoginModalState extends State<LoginModal>
       }
 
       // Authenticate with Firebase using Google credentials
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -324,29 +330,32 @@ class _LoginModalState extends State<LoginModal>
 
       if (user != null) {
         // Check if user exists in Firestore
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+        final userDoc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
 
         // Create user document if it doesn't exist
         if (!userDoc.exists) {
           // Get profile photo URL or use a default
           String? profileImageUrl = user.photoURL;
           if (profileImageUrl == null || profileImageUrl.isEmpty) {
-            profileImageUrl = 'https://yvyknbymnqpwpxzkabnc.supabase.co/storage/v1/object/public/profile-pictures/image_2025-05-16_221317901.png';
+            profileImageUrl =
+                'https://yvyknbymnqpwpxzkabnc.supabase.co/storage/v1/object/public/profile-pictures/image_2025-05-16_221317901.png';
           }
-          
+
           await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
               .set({
-            'username': user.displayName ?? user.email?.split('@')[0] ?? 'Guest',
-            'email': user.email ?? '',
-            'profile_image_url': profileImageUrl,
-            'role': 'user',
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+                'username':
+                    user.displayName ?? user.email?.split('@')[0] ?? 'Guest',
+                'email': user.email ?? '',
+                'profile_image_url': profileImageUrl,
+                'role': 'user',
+                'createdAt': FieldValue.serverTimestamp(),
+              });
         }
 
         if (mounted) {
@@ -362,7 +371,8 @@ class _LoginModalState extends State<LoginModal>
           // Get username from Firestore or fall back to Google display name
           String username;
           if (userDoc.exists) {
-            username = userDoc.data()?['username'] ?? user.displayName ?? 'Guest';
+            username =
+                userDoc.data()?['username'] ?? user.displayName ?? 'Guest';
           } else {
             username = user.displayName ?? 'Guest';
           }
@@ -370,25 +380,28 @@ class _LoginModalState extends State<LoginModal>
           // Navigate to the main screen
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => MainScreen(
-                isLimited: false,
-                initialPageIndex: 4,
-                username: username,
-              ),
+              builder:
+                  (context) => MainScreen(
+                    isLimited: false,
+                    initialPageIndex: 4,
+                    username: username,
+                  ),
             ),
           );
         }
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      
+
       String errorMessage;
       switch (e.code) {
         case 'account-exists-with-different-credential':
-          errorMessage = 'An account already exists with the same email address but different sign-in credentials.';
+          errorMessage =
+              'An account already exists with the same email address but different sign-in credentials.';
           break;
         case 'invalid-credential':
-          errorMessage = 'Error occurred during Google sign in. Please try again.';
+          errorMessage =
+              'Error occurred during Google sign in. Please try again.';
           break;
         case 'operation-not-allowed':
           errorMessage = 'Google sign-in is not enabled for this project.';
@@ -403,7 +416,7 @@ class _LoginModalState extends State<LoginModal>
         default:
           errorMessage = 'Google Sign-In failed: ${e.message}';
       }
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
@@ -433,6 +446,38 @@ class _LoginModalState extends State<LoginModal>
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email to reset your password.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password reset email sent! Check your inbox.'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to send reset email: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -490,18 +535,6 @@ class _LoginModalState extends State<LoginModal>
                       Container(
                         width: isSmallScreen ? 80 : 100,
                         height: isSmallScreen ? 80 : 100,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE47F43).withOpacity(0.1),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
                         child: Image.asset(
                           'assets/images/pou_logo_brown.png',
                           fit: BoxFit.contain,
@@ -509,7 +542,7 @@ class _LoginModalState extends State<LoginModal>
                             // Fallback to icon if image loading fails
                             return Icon(
                               Icons.shopping_bag_outlined,
-                              size: isSmallScreen ? 30 : 40,
+                              size: isSmallScreen ? 40 : 50,
                               color: const Color(0xFFE47F43),
                             );
                           },
@@ -628,7 +661,25 @@ class _LoginModalState extends State<LoginModal>
                           return null;
                         },
                       ),
-                      SizedBox(height: isSmallScreen ? 16 : 24),
+                      SizedBox(height: isSmallScreen ? 8 : 12),
+
+                      if (!_isRegistering)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _isLoading ? null : _forgotPassword,
+                            child: const Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: Color(0xFFE47F43),
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      SizedBox(height: isSmallScreen ? 8 : 12),
 
                       // Primary action button with loading animation
                       SizedBox(
@@ -755,7 +806,11 @@ class _LoginModalState extends State<LoginModal>
                               errorBuilder: (context, error, stackTrace) {
                                 return const Icon(Icons.g_mobiledata, size: 24);
                               },
-                              loadingBuilder: (context, child, loadingProgress) {
+                              loadingBuilder: (
+                                context,
+                                child,
+                                loadingProgress,
+                              ) {
                                 if (loadingProgress == null) return child;
                                 return SizedBox(
                                   height: isSmallScreen ? 20 : 24,
@@ -766,9 +821,10 @@ class _LoginModalState extends State<LoginModal>
                                       width: 12,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Color(0xFFD18050),
-                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Color(0xFFD18050),
+                                            ),
                                       ),
                                     ),
                                   ),
@@ -777,7 +833,9 @@ class _LoginModalState extends State<LoginModal>
                             ),
                             label: Text(
                               'Continue with Google',
-                              style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
+                              style: TextStyle(
+                                fontSize: isSmallScreen ? 14 : 16,
+                              ),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,

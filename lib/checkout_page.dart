@@ -96,8 +96,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
     });
 
     try {
-      // Simulate payment processing
-      await Future.delayed(const Duration(seconds: 2));
+      // Check stock for each item before proceeding
+      for (final item in widget.items) {
+        final productQuery = await FirebaseFirestore.instance
+            .collection('products')
+            .where('name', isEqualTo: item.name)
+            .limit(1)
+            .get();
+        if (productQuery.docs.isEmpty) {
+          throw Exception('Product "${item.name}" not found.');
+        }
+        final productData = productQuery.docs.first.data();
+        int availableStock = 0;
+        if ((productData['hasMultipleSizes'] ?? false) && item.size != null) {
+          final sizeObj = (productData['sizes'] as List)
+              .firstWhere((s) => s['size'] == item.size, orElse: () => null);
+          availableStock = sizeObj != null ? (sizeObj['stock'] ?? 0) : 0;
+        } else {
+          availableStock = productData['stock'] ?? 0;
+        }
+        if (item.quantity > availableStock) {
+          throw Exception(
+              'Not enough stock for "${item.name}" (${item.size ?? ""}). Available: $availableStock, Requested: ${item.quantity}');
+        }
+      }
 
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) throw Exception('User not logged in');
@@ -166,6 +188,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
             .collection('cart')
             .doc(item.id)
             .delete();
+      }
+
+      // Update product stock
+      for (final item in widget.items) {
+        final productRef = FirebaseFirestore.instance.collection('products').doc(item.id);
+        final productSnap = await productRef.get();
+        if (!productSnap.exists) continue;
+        final productData = productSnap.data()!;
+        if ((productData['hasMultipleSizes'] ?? false) && item.size != null) {
+          List sizes = List.from(productData['sizes'] ?? []);
+          int idx = sizes.indexWhere((s) => s['size'] == item.size);
+          if (idx != -1) {
+            sizes[idx]['stock'] = (sizes[idx]['stock'] ?? 0) - item.quantity;
+            if (sizes[idx]['stock'] < 0) sizes[idx]['stock'] = 0;
+          }
+          int totalStock = sizes.fold<int>(0, (sum, s) => sum + ((s['stock'] ?? 0) as int));
+          await productRef.update({'sizes': sizes, 'stock': totalStock});
+        } else {
+          int newStock = (productData['stock'] ?? 0) - item.quantity;
+          if (newStock < 0) newStock = 0;
+          await productRef.update({'stock': newStock});
+        }
       }
 
       // Order completed successfully

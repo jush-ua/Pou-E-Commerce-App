@@ -10,7 +10,6 @@ import 'splash_screen.dart'; // Import the new splash screen
 import 'cart.dart'; // Import the CartPage widget
 import 'chat.dart'; // Import the ChatPage widget
 import 'chatlist.dart'; // Import the ChatPage widget
-import 'chatlist.dart'; // Import the ChatUserListPage widget
 import 'checkout_page.dart'; // Import the CheckoutPage widget
 import 'package:flutter/services.dart'; // Import services for system UI
 
@@ -56,19 +55,54 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     // Apply system UI style
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Pou Shop',
+      title: 'ShaPou',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFE47F43)),
         useMaterial3: true,
+        fontFamily: 'Inter', // or 'Poppins' or 'Nunito'
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.bold,
+          ),
+          displayMedium: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.bold,
+          ),
+          headlineLarge: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+          ),
+          headlineMedium: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+          ),
+          titleLarge: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+          ),
+          titleMedium: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w500,
+          ),
+          bodyLarge: TextStyle(fontFamily: 'Inter'),
+          bodyMedium: TextStyle(fontFamily: 'Inter'),
+          labelLarge: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         // Add page transitions theme
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
@@ -112,8 +146,8 @@ class _MyAppState extends State<MyApp> {
             peerId: args['peerId'] ?? '',
             peerUsername: args['peerUsername'] ?? '',
             peerAvatar: args['peerAvatar'],
-            sellerId: args['sellerId'],         // <-- Now valid
-            productName: args['productName'],   // <-- Now valid
+            sellerId: args['sellerId'], // <-- Now valid
+            productName: args['productName'], // <-- Now valid
           );
         },
         '/checkout': (context) => CheckoutPage(items: []),
@@ -195,7 +229,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       ),
       body: SafeArea(
         // Wrap body with SafeArea
-        bottom: false, // Don't add bottom padding since we handle it in bottomNavigationBar
+        bottom:
+            false, // Don't add bottom padding since we handle it in bottomNavigationBar
         child: FadeTransition(
           opacity: _animationController,
           child: SlideTransition(
@@ -268,11 +303,13 @@ class CustomAppBar extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'pou',
+                'ShaPou',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter', // Add this
+                  letterSpacing: 0.5, // Optional: adds modern spacing
                 ),
               ),
             ],
@@ -297,11 +334,30 @@ class CustomBottomNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+    
+    // Responsive sizing based on screen dimensions
+    final bool isSmallScreen = screenWidth < 360 || screenHeight < 640;
+    final bool isVerySmallScreen = screenWidth < 320;
+    
+    // Dynamic values based on screen size
+    final double baseHeight = isVerySmallScreen ? 60 : (isSmallScreen ? 65 : 70);
+    final double topPadding = isVerySmallScreen ? 2 : 4;
+    final double verticalPadding = isVerySmallScreen ? 4 : 6;
+    final double iconSize = isVerySmallScreen ? 20 : (isSmallScreen ? 22 : 24);
+    final double searchIconSize = isVerySmallScreen ? 18 : (isSmallScreen ? 20 : 22);
+    final double searchButtonSize = isVerySmallScreen ? 36 : (isSmallScreen ? 38 : 42);
+    final double fontSize = isVerySmallScreen ? 9 : (isSmallScreen ? 10 : 11);
+    final double iconPadding = isVerySmallScreen ? 4 : 6;
+    final double spacingHeight = isVerySmallScreen ? 1 : 2;
 
     return Container(
-      height: (screenWidth * 0.18) + bottomPadding, // Add bottom padding to height
-      padding: EdgeInsets.only(bottom: bottomPadding), // Add padding for safe area
+      height: baseHeight + bottomPadding,
+      padding: EdgeInsets.only(
+        bottom: bottomPadding,
+        top: topPadding,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -319,11 +375,11 @@ class CustomBottomNavigationBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildNavItem(0, Icons.home_outlined, 'Home', screenWidth),
-          _buildNavItem(1, Icons.shopping_cart_outlined, 'Cart', screenWidth),
-          _buildSearchNavItem(screenWidth),
-          _buildNavItem(3, Icons.chat_bubble_outline, 'Chat', screenWidth),
-          _buildNavItem(4, Icons.person_outline, 'Profile', screenWidth),
+          _buildNavItem(0, Icons.home_outlined, 'Home', screenWidth, iconSize, fontSize, verticalPadding, iconPadding, spacingHeight),
+          _buildNavItem(1, Icons.shopping_cart_outlined, 'Cart', screenWidth, iconSize, fontSize, verticalPadding, iconPadding, spacingHeight),
+          _buildSearchNavItem(screenWidth, searchIconSize, searchButtonSize, fontSize, verticalPadding, spacingHeight),
+          _buildNavItem(3, Icons.chat_bubble_outline, 'Chat', screenWidth, iconSize, fontSize, verticalPadding, iconPadding, spacingHeight),
+          _buildNavItem(4, Icons.person_outline, 'Profile', screenWidth, iconSize, fontSize, verticalPadding, iconPadding, spacingHeight),
         ],
       ),
     );
@@ -334,71 +390,131 @@ class CustomBottomNavigationBar extends StatelessWidget {
     IconData icon,
     String label,
     double screenWidth,
+    double iconSize,
+    double fontSize,
+    double verticalPadding,
+    double iconPadding,
+    double spacingHeight,
   ) {
     final bool isSelected = selectedIndex == index;
 
-    return GestureDetector(
-      onTap: () => onItemTapped(index),
-      child: SizedBox(
-        width: screenWidth * 0.18, // Adjust width dynamically
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: screenWidth * 0.07, // Adjust icon size
-              color: isSelected ? const Color(0xFFE47F43) : Colors.grey,
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onItemTapped(index),
+          borderRadius: BorderRadius.circular(12),
+          splashColor: const Color(0xFFE47F43).withOpacity(0.2),
+          highlightColor: const Color(0xFFE47F43).withOpacity(0.1),
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 2),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  padding: EdgeInsets.all(iconPadding),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? const Color(0xFFE47F43).withOpacity(0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: iconSize,
+                    color: isSelected ? const Color(0xFFE47F43) : Colors.grey[600],
+                  ),
+                ),
+                SizedBox(height: spacingHeight),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    fontSize: fontSize,
+                    color: isSelected ? const Color(0xFFE47F43) : Colors.grey[600],
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: screenWidth * 0.03,
-                color: isSelected ? const Color(0xFFE47F43) : Colors.grey,
-              ), // Adjust font size
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildSearchNavItem(double screenWidth) {
+  Widget _buildSearchNavItem(
+    double screenWidth,
+    double searchIconSize,
+    double searchButtonSize,
+    double fontSize,
+    double verticalPadding,
+    double spacingHeight,
+  ) {
     final bool isSelected = selectedIndex == 2;
 
-    return GestureDetector(
-      onTap: () => onItemTapped(2),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color:
-                  isSelected
-                      ? const Color(0xFFE47F43)
-                      : Colors.grey.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.search,
-              color: isSelected ? Colors.white : Colors.grey,
-              size: 24,
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onItemTapped(2),
+          borderRadius: BorderRadius.circular(20),
+          splashColor: const Color(0xFFE47F43).withOpacity(0.2),
+          highlightColor: const Color(0xFFE47F43).withOpacity(0.1),
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 2),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: searchButtonSize,
+                  height: searchButtonSize,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFE47F43)
+                        : Colors.grey.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                    boxShadow: isSelected ? [
+                      BoxShadow(
+                        color: const Color(0xFFE47F43).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ] : null,
+                  ),
+                  child: Icon(
+                    Icons.search,
+                    color: isSelected ? Colors.white : Colors.grey[600],
+                    size: searchIconSize,
+                  ),
+                ),
+                SizedBox(height: spacingHeight),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    color: isSelected ? const Color(0xFFE47F43) : Colors.grey[600],
+                    fontSize: fontSize,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                  child: const Text(
+                    'Search',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              color: isSelected ? const Color(0xFFE47F43) : Colors.grey,
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-            ),
-            child: const Text('Search'),
-          ),
-        ],
+        ),
       ),
     );
   }

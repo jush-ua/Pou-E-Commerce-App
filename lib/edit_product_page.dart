@@ -174,6 +174,7 @@ class _EditProductPageState extends State<EditProductPage> {
   }
 
   Future<void> _saveChanges() async {
+    FocusScope.of(context).unfocus(); // <-- Add this line
     if (!_formKey.currentState!.validate()) return;
 
     _formKey.currentState!.save();
