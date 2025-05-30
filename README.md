@@ -75,4 +75,8 @@ A nostalgic, Pou-themed mobile shopping app
 
 ---
 
+📊 [View User Feedback Results (Google Sheets)](https://docs.google.com/spreadsheets/d/1SIJFxM5QuKbHX-t62aC6wVC1epymssbanZeqWT2_w0w/edit?usp=sharing)
+
+> Collected responses from users who tested the app, based on our feedback survey via Google Forms.
+
 © 2025 ShaPou Team – Final Project Submission  
