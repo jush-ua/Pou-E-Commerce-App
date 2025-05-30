@@ -39,7 +39,34 @@ A nostalgic, Pou-themed mobile shopping app
 
 ### 📸 Screenshots of Each Feature
 
-> *To be added*
+### 📸 Screenshots of Each Feature
+
+> Screenshots are shown below for each feature and major page of the ShaPou app.  
+
+| **Feature / Page**        | **Screenshot(s)** |
+|---------------------------|-------------------|
+| Home Page                 | ![](./screenshots/HomePage.jpg) |
+| Product Details           | ![](./screenshots/ProductDetails.jpg) |
+| Profile Page              | ![](./screenshots/ProfileGuest(1).jpg)<br>![](./screenshots/Profile.jpg)<br>![](./screenshots/ProfileSeller.jpg) |
+| Login                     | ![](./screenshots/Login.jpg) |
+| Register                  | ![](./screenshots/Register.jpg) |
+| Wishlist                  | ![](./screenshots/Wishlist1.jpg)<br>![](./screenshots/WIshlist2.jpg) |
+| Address Management        | ![](./screenshots/Address1.jpg)<br>![](./screenshots/Address2.jpg) |
+| About Us                  | ![](./screenshots/AboutUs.jpg) |
+| Seller Request Form       | ![](./screenshots/SellerRequest.jpg) |
+| Edit Profile              | ![](./screenshots/EditProfile.jpg) |
+| Chat / Messaging          | ![](./screenshots/Chat1.png)<br>![](./screenshots/chat2.jpg)<br>![](./screenshots/Chat3.jpg) |
+| Search Page               | ![](./screenshots/Search.jpg)<br>![](./screenshots/Search2.jpg) |
+| Cart                      | ![](./screenshots/Cart1.jpg)<br>![](./screenshots/Cart2.jpg) |
+| Checkout                  | ![](./screenshots/Checkout1.jpg)<br>![](./screenshots/Checkout2.jpg)<br>![](./screenshots/Checkout3.jpg) |
+| Purchase History          | ![](./screenshots/PurchaseHistory1.jpg)<br>![](./screenshots/PurchaseHistory2.jpg)<br>![](./screenshots/PurchaseHistory3.jpg) |
+| Product Reviews           | ![](./screenshots/Review.jpg) |
+| Seller Dashboard          | ![](./screenshots/SellerDashboard1.jpg)<br>![](./screenshots/SellerDashboard2.jpg) |
+| Add Product               | ![](./screenshots/AddProduct1.jpg)<br>![](./screenshots/AddProduct2.jpg) |
+| Manage Products           | ![](./screenshots/ManageProduct.jpg) |
+| Edit Product              | ![](./screenshots/EditProduct.jpg) |
+| Order Management (Admin)  | ![](./screenshots/OrderManagement1.jpg)<br>![](./screenshots/OrderManagement2.jpg)<br>![](./screenshots/OrderManagement3.jpg) |
+
 
 ---
 
